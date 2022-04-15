@@ -1,0 +1,7 @@
+
+*.nii
+*.json
+*.bvec
+*.bval
+tmp/.DS_Store
+.DS_Store
