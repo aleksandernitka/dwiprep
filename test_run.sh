@@ -43,7 +43,7 @@ echo `date +"%D %T"` $1 'run topup'
 
 # Apply topup
 echo `date +"%D %T"` $1 'apply topup'
-applytopup -i tmp/$1_AP_denoised,tmp/$1_PA_denoised -x 1,2 -a tmp/acqparams.txt -t tmp/topup -o tmp/$1_dwi -v
+applytopup -i tmp/$1_AP_denoised,tmp/$1_PA_denoised -x 1,2 -a tmp/acqparams.txt -t tmp/topup -o tmp/$1_dwi_tp -v
 # Control plots for topup
 python plt_topup.py $1
 
@@ -62,3 +62,9 @@ python mk_otsubrainmask.py $1
 python mk_indexeddy.py $1
 
 # Eddy
+# run eddy with outlier replacement --repol, slice to volume correction
+eddy_openmp --imain=tmp/$1_AP --mask=tmp/$1_dwi_b0_brain_mask_otsu.nii.gz --acqp=tmp/acqparams.txt --index=tmp/eddyindex.txt --bvecs=tmp/$1_AP.bvec --bvals=tmp/$1_AP.bval --topup=tmp/res_topup --repol --niter=8 --out=tmp/$1_dwi_tp_eddy --verbose --json=tmp/$1_AP.json --cnr_maps
+
+echo `date +"%D %T"` $1 'eddy QC'
+eddy_quad tmp/$1_dwi_tp_eddy -idx tmp/eddyindex.txt -par tmp/acqparams.txt -m tmp/$1_dwi_b0_brain_mask_otsu.nii.gz -b tmp/$1_AP.bval -v -o tmp/eddyqc
+echo `date +"%D %T"` $1 'done'
