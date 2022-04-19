@@ -26,7 +26,7 @@ def mk_b0s(sid):
     
     b0s_ap = dwi_ap[:,:,:,gtab.b0s_mask]
     #b0s_pa = dwi_pa[:,:,:,[True, True, True, True, True]]
-    b0s_pa = dwi_pa[:,:,:,[True, True, True, True, False]] # only the first 4 images look like b0
+    b0s_pa = dwi_pa[:,:,:,[True, True, True, True, True]] # only the first 4 images look like b0
     
     # Control figure AP
     fig1, ax = plt.subplots(2, 5, figsize=(12, 6),subplot_kw={'xticks': [], 'yticks': []})
@@ -41,7 +41,7 @@ def mk_b0s(sid):
     fig1.savefig(os.path.join('tmp', f'{sid}_AP_b0s.png'))
     
     # Control figure PA
-    fig1, ax = plt.subplots(1, 4, figsize=(12, 3),subplot_kw={'xticks': [], 'yticks': []})
+    fig1, ax = plt.subplots(1, 5, figsize=(12, 3),subplot_kw={'xticks': [], 'yticks': []})
     fig1.subplots_adjust(hspace=0.05, wspace=0.15)
     fig1.suptitle(f'{sid} PA b0s', fontsize = 20)
     

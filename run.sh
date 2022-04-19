@@ -13,7 +13,7 @@ conda list --export --json > tmp/conda_env.json
 
 # Cp files required
 python cp_dwifiles.py $1 ${hmridir} ${subdir} ${tmpdir}
-'''
+
 # Get infor about gradients
 # TODO dumps core for some reason?
 python mk_gradients.py $1 
@@ -26,10 +26,6 @@ echo `date +"%D %T"` $1 'denoising started'
 python rm_noise_patch2self.py $1
 
 echo `date +"%D %T"` $1 'done'
-
-# Extract b0s
-fslroi tmp/$1_AP tmp/$1_AP_b0 0 1
-fslroi tmp/$1_PA tmp/$1_PA_b0 0 1
 
 # Merge b0s
 fslmerge -t tmp/$1_b0 tmp/$1_AP_b0 tmp/$1_PA_b0
@@ -63,5 +59,5 @@ eddy_openmp --imain=tmp/$1_AP.nii.gz --mask=tmp/$1_dwi_b0_brain_mask_otsu.nii.gz
 echo `date +"%D %T"` $1 'eddy QC'
 eddy_quad tmp/$1_dwi_cor -idx tmp/eddyindex.txt -par tmp/acqparams.txt -m tmp/$1_dwi_b0_brain_mask_otsu.nii.gz -b tmp/$1_AP.bval -v -o tmp/eddyqc
 echo `date +"%D %T"` $1 'done'
-'''
+
 

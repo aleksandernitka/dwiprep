@@ -17,7 +17,7 @@ def mk_otsubrainmask(sid):
     import nibabel as nib
     import numpy as np
     
-    b0, b0_affine = load_nifti(os.path.join('tmp', f'{sid}_dwi_b0.nii.gz'))
+    b0, b0_affine = load_nifti(os.path.join('tmp', f'{sid}_dwi_b0_mean.nii.gz'))
     
     # Make mask with median_otsu method, default params
     b0_mask, mask = median_otsu(b0)
