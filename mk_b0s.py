@@ -25,6 +25,7 @@ def mk_b0s(sid):
     dwi_pa, affine_pa = load_nifti(os.path.join('tmp', f'{sid}_PA.nii'))
     
     b0s_ap = dwi_ap[:,:,:,gtab.b0s_mask]
+    #b0s_pa = dwi_pa[:,:,:,[True, True, True, True, True]]
     b0s_pa = dwi_pa[:,:,:,[True, True, True, True, False]] # only the first 4 images look like b0
     
     # Control figure AP
@@ -41,7 +42,7 @@ def mk_b0s(sid):
     
     # Control figure PA
     fig1, ax = plt.subplots(1, 4, figsize=(12, 3),subplot_kw={'xticks': [], 'yticks': []})
-    fig1.subplots_adjust(hspace=0.05, wspace=0.05)
+    fig1.subplots_adjust(hspace=0.05, wspace=0.15)
     fig1.suptitle(f'{sid} PA b0s', fontsize = 20)
     
     for i in range(0, b0s_pa.shape[3]):

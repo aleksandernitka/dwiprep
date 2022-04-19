@@ -69,7 +69,7 @@ def p2s_denoise(sid):
         fig1, ax = plt.subplots(1, 3, figsize=(12, 6),subplot_kw={'xticks': [], 'yticks': []})
     
         fig1.subplots_adjust(hspace=0.05, wspace=0.05)
-        fig1.title(f'{sid} AP vol={vs} bval={int(bvals_ap[i])}', fontsize =20)
+        fig1.suptitle(f'{sid} AP vol={vs} bval={int(bvals_ap[i])}', fontsize =20)
     
         ax.flat[0].imshow(dwi_ap[:,:,s,vs].T, cmap='gray', interpolation='none',origin='lower')
         ax.flat[0].set_title(f'Original, vol {vs}')
@@ -78,13 +78,13 @@ def p2s_denoise(sid):
         ax.flat[2].imshow(rms_diff.T, cmap='gray', interpolation='none',origin='lower')
         ax.flat[2].set_title('Residuals')
         
-        sfig = os.path.join(png_dir, f'{sid}_ap_bv-{int(bvals_pa[i])}_v-{vs}.png')
-        hfig = os.path.join(f'{sid}_p2s_pngs', f'{sid}_ap_bv-{int(bvals_pa[i])}_v-{vs}.png')
+        sfig = os.path.join(png_dir, f'{sid}_ap_bv-{int(bvals_ap[i])}_v-{vs}.png')
+        hfig = os.path.join(f'{sid}_p2s_pngs', f'{sid}_ap_bv-{int(bvals_ap[i])}_v-{vs}.png')
         fig1.savefig(sfig)
         
         # Add to html
         html += f'<img src="{hfig}"><br>'
-        
+        plt.close()
     
     html+="<br><br><h2 id = 'pa'>PA Volumes</h2><br><br><p>Please note that PA volumes were denoised assuming five b-vals of 5.<br><br>"
     
@@ -112,7 +112,7 @@ def p2s_denoise(sid):
         
         # Add to html
         html += f'<img src="{hfig}"><br>'
-    
+        plt.close() 
     
     
     
