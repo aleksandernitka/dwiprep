@@ -8,11 +8,15 @@ export tmpdir=/home/aleksander/dwiprep/tmp/
 
 echo `date +"%D %T"` $1 'preprocessing started'
 
+# Packages
+conda list --export --json > tmp/conda_env.json
+
 # Cp files required
 python cp_dwifiles.py $1 ${hmridir} ${subdir} ${tmpdir}
-
+'''
 # Get infor about gradients
-python mk_gradients$1 tmp/$1_AP.bval tmp/$1_AP.bvec
+# TODO dumps core for some reason?
+python mk_gradients.py $1 
 
 # mk acqparams file for topup and eddys
 python mk_acqparams.py 
@@ -22,7 +26,7 @@ echo `date +"%D %T"` $1 'denoising started'
 python rm_noise_patch2self.py $1
 
 echo `date +"%D %T"` $1 'done'
-'''
+
 # Extract b0s
 fslroi tmp/$1_AP tmp/$1_AP_b0 0 1
 fslroi tmp/$1_PA tmp/$1_PA_b0 0 1

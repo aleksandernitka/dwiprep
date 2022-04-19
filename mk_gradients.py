@@ -3,7 +3,7 @@
 
 import sys
 
-def mk_gradients(sid, bvals, bvecs):
+def mk_gradients(sid):
     
     """
     Input bval, bvecs and dipy will create gradinent table, produce a bvals
@@ -20,25 +20,19 @@ def mk_gradients(sid, bvals, bvecs):
 
     @author: aleksander nitka
     """
-
-    from dipy.core.gradients import gradient_table
-    from dipy.io.gradients import read_bvals_bvecs
-    from dipy.viz import window, actor
     
+    from dipy.core.gradients import gradient_table
+    #from dipy.viz import window, actor
     import numpy as np
     import matplotlib.pyplot as plt
     
-    gt_bvals, gt_bvecs = read_bvals_bvecs(bvals, bvecs)
-    
-    gtab = gradient_table(bvals, bvecs)
+    gtab = gradient_table(f'tmp/{sid}_AP.bval', f'tmp/{sid}_AP.bvec')
     
     # make text for html
-    txt = f'bvals shape {gt_bvals.shape}, min = {gt_bvals.min()}, max = {gt_bvals.max()}\
-        with {len(np.unique(gtab.bvals))} unique values: {np.unique(gtab.bvals)}\
-        bvecs shape {gt_bvecs.shape}, min = {gt_bvecs.min()}, max = {gt_bvecs.max()}'
+    txt = f'bvals shape {gtab.bvals.shape}, min = {gtab.bvals.min()}, max = {gtab.bvals.max()} with {len(np.unique(gtab.bvals))} unique values: {np.unique(gtab.bvals)}bvecs shape {gtab.bvecs.shape}, min = {gtab.bvecs.min()}, max = {gtab.bvecs.max()}'
 
     with open(f'tmp/{sid}_gradients.txt', 'w') as f:
-        f.wite(txt)
+        f.write(txt)
         f.close()
         
         
@@ -48,18 +42,19 @@ def mk_gradients(sid, bvals, bvecs):
     plt.close()
     
     # Make a nice plot with all gtab data
-    interactive = False
+    # Unable to plot this onb KPC - crashes kernel
+    # interactive = False
     
-    scene = window.Scene()
-    scene.SetBackground(1, 1, 1)
-    scene.clear()
-    scene.add(actor.point(gtab.gradients, window.colors.red, point_radius=100))
-    window.record(scene, out_path=f'tmp/{sid}_gradients.png', size=(600, 600))
+    # scene = window.Scene()
+    # scene.SetBackground(1, 1, 1)
+    # scene.clear()
+    # scene.add(actor.point(gtab.gradients, window.colors.red, point_radius=100))
+    # window.record(scene, out_path=f'tmp/{sid}_gradients.png', size=(600, 600))
     
-    if interactive:
-        window.show(scene)
+    # if interactive:
+    #     window.show(scene)
 
     # save b0s mask as numpy array  - which volumes are b0 in AP (bool)
     np.save(f'tmp/{sid}_b0mask.npy', gtab.b0s_mask)
     
-mk_gradients(sys.argv[1], sys.argv[2], sys.argv[3])
+mk_gradients(sys.argv[1])

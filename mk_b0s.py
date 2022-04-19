@@ -6,6 +6,7 @@ import sys
 def mk_b0s(sid):
     """
     Extracts all b0s from the AP.nii and saves it as AP_b0s.nii.gz
+    For the other direction it only plots and saves it for consistency
     Control plot with all b0s is saved as AP_b0s.png
     
     Created on Tue Apr 19 10:27:49 2022
@@ -21,11 +22,12 @@ def mk_b0s(sid):
     gtab = gradient_table(f'tmp/{sid}_AP.bval', f'tmp/{sid}_AP.bvec')
     
     dwi_ap, affine_ap = load_nifti(os.path.join('tmp', f'{sid}_AP.nii'))
+    dwi_pa, affine_pa = load_nifti(os.path.join('tmp', f'{sid}_PA.nii'))
     
     b0s_ap = dwi_ap[:,:,:,gtab.b0s_mask]
+    b0s_pa = dwi_pa[:,:,:,[True, True, True, True, False]] # only the first 4 images look like b0
     
-    
-    # Control figure
+    # Control figure AP
     fig1, ax = plt.subplots(2, 5, figsize=(12, 6),subplot_kw={'xticks': [], 'yticks': []})
     fig1.subplots_adjust(hspace=0.05, wspace=0.05)
     fig1.suptitle(f'{sid} AP b0s', fontsize = 20)
@@ -35,10 +37,23 @@ def mk_b0s(sid):
         ax.flat[i].imshow(b0s_ap[:,:,42,i].T, cmap='gray', interpolation='none',origin='lower')
         ax.flat[i].set_title(f'{i}')
         
-    fig1.savefig(os.path.join('tmp', f'{sid}_b0s_pa.png'))
+    fig1.savefig(os.path.join('tmp', f'{sid}_AP_b0s.png'))
+    
+    # Control figure PA
+    fig1, ax = plt.subplots(1, 4, figsize=(12, 3),subplot_kw={'xticks': [], 'yticks': []})
+    fig1.subplots_adjust(hspace=0.05, wspace=0.05)
+    fig1.suptitle(f'{sid} PA b0s', fontsize = 20)
+    
+    for i in range(0, b0s_pa.shape[3]):
+        
+        ax.flat[i].imshow(b0s_pa[:,:,42,i].T, cmap='gray', interpolation='none',origin='lower')
+        ax.flat[i].set_title(f'{i}')
+        
+    fig1.savefig(os.path.join('tmp', f'{sid}_PA_b0s.png'))
     
     # Save AP b0s
     save_nifti(f'tmp/{sid}_AP_b0s.nii.gz', b0s_ap, affine_ap)   
+    save_nifti(f'tmp/{sid}_PA_b0s.nii.gz', b0s_pa, affine_pa)   
     
     
 mk_b0s(sys.argv[1])

@@ -34,8 +34,14 @@ def p2s_denoise(sid):
     bvals_ap = np.loadtxt(os.path.join('tmp', f'{sid}_AP.bval'))
     bvals_pa = np.array([5.,5.,5.,5.,5.])
     
+    # Process AP
     dwi_ap_den = patch2self(dwi_ap, bvals_ap, model='ols', shift_intensity=True, clip_negative_vals=False, b0_threshold=50, verbose=True)
+    # Save NII
+    save_nifti(os.path.join('tmp', f'{sid}_AP_denoised.nii.gz'), dwi_ap_den, dwi_ap_affine)
+    
+    # Process PA
     dwi_pa_den = patch2self(dwi_pa, bvals_pa, model='ols', shift_intensity=True, clip_negative_vals=False, b0_threshold=50, verbose=True)
+    save_nifti(os.path.join('tmp', f'{sid}_PA_denoised.nii.gz'), dwi_pa_den, dwi_pa_affine)
     
     # Plot all volumes
     s = 42 # slice
@@ -107,9 +113,8 @@ def p2s_denoise(sid):
         # Add to html
         html += f'<img src="{hfig}"><br>'
     
-    # Save NII
-    save_nifti(os.path.join('tmp', f'{sid}_AP_denoised.nii.gz'), dwi_ap_den, dwi_ap_affine)
-    save_nifti(os.path.join('tmp', f'{sid}_PA_denoised.nii.gz'), dwi_pa_den, dwi_pa_affine)
+    
+    
     
     # close html
     html += f'Produced by machines of superior intelligence under the guidiance \
