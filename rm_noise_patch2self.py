@@ -32,10 +32,10 @@ def p2s_denoise(sid):
     
     # load bval
     bvals_ap = np.loadtxt(os.path.join('tmp', f'{sid}_AP.bval'))
-    bvals_pa = np.array([5,5,5,5,5])
+    bvals_pa = np.array([5.,5.,5.,5.,5.])
     
     dwi_ap_den = patch2self(dwi_ap, bvals_ap, model='ols', shift_intensity=True, clip_negative_vals=False, b0_threshold=50, verbose=True)
-    dwi_pa_den = patch2self(dwi_pa, bvals=bvals_pa, model='ols', shift_intensity=True, clip_negative_vals=False, b0_threshold=50, verbose=True)
+    dwi_pa_den = patch2self(dwi_pa, bvals_pa, model='ols', shift_intensity=True, clip_negative_vals=False, b0_threshold=50, verbose=True)
     
     # Plot all volumes
     s = 42 # slice
@@ -48,7 +48,7 @@ def p2s_denoise(sid):
         os.mkdir(png_dir)
     
     html = f"<!DOCTYPE html><HTML><body><center><h1>{sid}</h1><br><p>Denoising was \
-        performed with DIPY (v1.5.0) patch2self tool (it relied on scikit-learn v1.0.2) \
+        performed with Python 3.6 and DIPY (v1.5.0) patch2self tool (it relied on scikit-learn v1.0.2) \
             with model set as ordinary least squares ‘ols’, b0 threshold set at 50, \
                 intensity shifting and negative values clipping enabled.\
                     </p><br><a href='#pa'>Jump to PA</a><br><h2 id = 'ap'>AP Volumes</h2><br><br>"
