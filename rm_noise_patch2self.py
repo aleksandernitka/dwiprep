@@ -25,7 +25,11 @@ def p2s_denoise(sid):
     from shutil import rmtree as rmt
     from dipy.denoise.patch2self import patch2self
     from datetime import datetime as dt
-        
+    from dipy.core.histeq import histeq
+    import cmocean
+    
+    xcmp = 'gray'
+    
     # Load dwi
     dwi_ap, dwi_ap_affine = load_nifti(os.path.join('tmp', f'{sid}_AP.nii'))
     dwi_pa, dwi_pa_affine = load_nifti(os.path.join('tmp', f'{sid}_PA.nii'))
@@ -71,11 +75,11 @@ def p2s_denoise(sid):
         fig1.subplots_adjust(hspace=0.05, wspace=0.05)
         fig1.suptitle(f'{sid} AP vol={vs} bval={int(bvals_ap[i])}', fontsize =20)
     
-        ax.flat[0].imshow(dwi_ap[:,:,s,vs].T, cmap='gray', interpolation='none',origin='lower')
+        ax.flat[0].imshow(histeq(dwi_ap[:,:,s,vs].T), cmap=xcmp, interpolation='none',origin='lower')
         ax.flat[0].set_title(f'Original, vol {vs}')
-        ax.flat[1].imshow(dwi_ap_den[:,:,s,vs].T, cmap='gray', interpolation='none',origin='lower')
+        ax.flat[1].imshow(histeq(dwi_ap_den[:,:,s,vs].T), cmap=xcmp, interpolation='none',origin='lower')
         ax.flat[1].set_title('Denoised Output')
-        ax.flat[2].imshow(rms_diff.T, cmap='gray', interpolation='none',origin='lower')
+        ax.flat[2].imshow(histeq(rms_diff.T), cmap=xcmp, interpolation='none',origin='lower')
         ax.flat[2].set_title('Residuals')
         
         sfig = os.path.join(png_dir, f'{sid}_ap_bv-{int(bvals_ap[i])}_v-{vs}.png')
@@ -99,11 +103,11 @@ def p2s_denoise(sid):
         fig1.subplots_adjust(hspace=0.05, wspace=0.05)
         fig1.suptitle(f'{sid} PA vol={vs} bval={int(bvals_pa[i])}', fontsize=20)
     
-        ax.flat[0].imshow(dwi_pa[:,:,s,vs].T, cmap='gray', interpolation='none',origin='lower')
+        ax.flat[0].imshow(histeq(dwi_pa[:,:,s,vs].T), cmap=xcmp, interpolation='none',origin='lower')
         ax.flat[0].set_title(f'Original, vol {vs}')
-        ax.flat[1].imshow(dwi_pa_den[:,:,s,vs].T, cmap='gray', interpolation='none',origin='lower')
+        ax.flat[1].imshow(histeq(dwi_pa_den[:,:,s,vs].T), cmap=xcmp, interpolation='none',origin='lower')
         ax.flat[1].set_title('Denoised Output')
-        ax.flat[2].imshow(rms_diff.T, cmap='gray', interpolation='none',origin='lower')
+        ax.flat[2].imshow(histeq(rms_diff.T), cmap=xcmp, interpolation='none',origin='lower')
         ax.flat[2].set_title('Residuals')
     
         sfig = os.path.join(png_dir, f'{sid}_pa_bv-{int(bvals_pa[i])}_v-{vs}.png')
