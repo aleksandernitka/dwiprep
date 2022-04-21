@@ -28,7 +28,8 @@ def p2s_denoise(sid):
     from dipy.core.histeq import histeq
     import cmocean
     
-    xcmp = 'gray'
+    #xcmp = 'gray'
+    xcmp=cmocean.cm.tarn
     
     # Load dwi
     dwi_ap, dwi_ap_affine = load_nifti(os.path.join('tmp', f'{sid}_AP.nii'))
