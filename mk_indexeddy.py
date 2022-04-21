@@ -12,10 +12,10 @@ def mk_indexeddy(sid):
     import os
     from dipy.io.image import load_nifti
     
-    dwi, __ = load_nifti(os.path.join('tmp', f'{sid}_dwi.nii.gz'))
+    dwi, __ = load_nifti(os.path.join('tmp', f'{sid}_AP_denoised.nii.gz'))
     vols = dwi.shape[3]
     
-    print(f'{sid} {vols} detected')
+    #print(f'{sid} {vols} detected')
     
     with open(os.path.join('tmp', 'eddyindex.txt'), 'w') as i:
         for l in range(1, vols+1):

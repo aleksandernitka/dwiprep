@@ -21,12 +21,11 @@ def mk_b0s(sid):
     
     gtab = gradient_table(f'tmp/{sid}_AP.bval', f'tmp/{sid}_AP.bvec')
     
-    dwi_ap, affine_ap = load_nifti(os.path.join('tmp', f'{sid}_AP.nii'))
-    dwi_pa, affine_pa = load_nifti(os.path.join('tmp', f'{sid}_PA.nii'))
+    dwi_ap, affine_ap = load_nifti(os.path.join('tmp', f'{sid}_AP_denoised.nii.gz'))
+    dwi_pa, affine_pa = load_nifti(os.path.join('tmp', f'{sid}_PA_denoised.nii.gz'))
     
     b0s_ap = dwi_ap[:,:,:,gtab.b0s_mask]
-    #b0s_pa = dwi_pa[:,:,:,[True, True, True, True, True]]
-    b0s_pa = dwi_pa[:,:,:,[True, True, True, True, True]] # only the first 4 images look like b0
+    b0s_pa = dwi_pa[:,:,:,[True, True, True, True, True]]
     
     # Control figure AP
     fig1, ax = plt.subplots(2, 5, figsize=(12, 6),subplot_kw={'xticks': [], 'yticks': []})
