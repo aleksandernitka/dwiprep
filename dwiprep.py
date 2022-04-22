@@ -1,6 +1,25 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+def run_topup(sid):
+    """
+    Using subprocess this fn runs the fsl topup. Noting more nothing less. 
+
+    Parameters
+    ----------
+    sid : STR
+        Subject id with 'sub' prefix.
+
+    Returns
+    -------
+    - Standard topup outputs, including fout and iout
+
+    """
+    import subprocess as sb
+    
+    
+    
+
 def plt_topup(sid):
     '''
     Topup generates a range of images. Use this fn to genrate images for QA
