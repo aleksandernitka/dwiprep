@@ -76,6 +76,7 @@ def run_topup(sid, pre_cmd):
     """
     import subprocess as sb
     
+    """
     tp_cmd = f'topup --imain=tmp/{sid}_AP-PA_b0s --datain=tmp/acqparams.txt \
         --out=tmp/{sid}_AP-PA_topup -v --fout=tmp/{sid}_AP-PA_fout \
         --iout=tmp/{sid}_AP-PA_iout -m jac --config=b02b0.cnf'
@@ -84,6 +85,13 @@ def run_topup(sid, pre_cmd):
         --out=tmp/{sid}_AP-PA_topup -v --fout=tmp/{sid}_AP-PA_fout \
         --iout=tmp/{sid}_AP-PA_iout -m jac --jacout={sid}_jac --dfout={sid}_warpfield \
         --config=b02b0.cnf'
+    """
+    tp_cmd = f'topup --config=b02b0.cfn --datain=tmp/acqparams.txt \
+        --imain=tmp/{sid}_AP-PA_b0s --out=tmp/{sid}_AP-PA_topup \
+        --iout=tmp/{sid}_iout --fout=tmp/{sid}_fout \
+        --m jac --jacout={sid}_jac --logout=tmp/{sid}_topup.log --rbmout=tmp/{sid}xfm \
+        --dfout=tmp/{sid}_warpfield'
+    
     
     sb.call(pre_cmd + ' ' + tp_cmd, shell=True)
     
