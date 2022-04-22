@@ -6,3 +6,7 @@
 tmp/
 .DS_Store
 *.png
+
+__pycache__/
+
+tmp2/

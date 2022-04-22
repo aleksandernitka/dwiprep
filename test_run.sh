@@ -60,24 +60,24 @@ python plt_topup.py $1
 # Eddy prep
 # TODO since there are no 
 # Extract b0s from dwi volume
-python mk_b0s_topupapplied.py $1
+#python mk_b0s_topupapplied.py $1
 # Calc mean b0s from dwi
-fslmaths tmp/$1_AP_b0s_topup-applied -Tmean tmp/$1_AP_b0s_topup-applied_mean
+#fslmaths tmp/$1_AP_b0s_topup-applied -Tmean tmp/$1_AP_b0s_topup-applied_mean
 # Get brain mask with BET
-bet tmp/$1_AP_b0s_topup-applied_mean tmp/$1_AP_b0s_topup-applied_bet -m
+#bet tmp/$1_AP_b0s_topup-applied_mean tmp/$1_AP_b0s_topup-applied_bet -m
 # plot brain mask
-python plt_brainmask.py $1
+#python plt_brainmask.py $1
 # mk and plot alternative mask with otsu
-python mk_otsubrainmask.py $1
+#python mk_otsubrainmask.py $1
 # Eddy requires an index file - make it
-python mk_indexeddy.py $1
+#python mk_indexeddy.py $1
 
 # Eddy
 # run eddy with outlier replacement --repol, slice to volume correction
-eddy_openmp --imain=tmp/$1_AP_denoised --mask=tmp/$1_AP_b0s_topup-applied_otsu_mask.nii.gz --acqp=tmp/acqparams.txt --index=tmp/eddyindex.txt --bvecs=tmp/$1_AP.bvec --bvals=tmp/$1_AP.bval --topup=tmp/$1_AP-PA_topup --repol --niter=8 --out=tmp/$1_DWI --verbose --json=tmp/$1_AP.json --cnr_maps
+#eddy_openmp --imain=tmp/$1_AP_denoised --mask=tmp/$1_AP_b0s_topup-applied_otsu_mask.nii.gz --acqp=tmp/acqparams.txt --index=tmp/eddyindex.txt --bvecs=tmp/$1_AP.bvec --bvals=tmp/$1_AP.bval --topup=tmp/$1_AP-PA_topup --repol --niter=8 --out=tmp/$1_DWI --verbose --json=tmp/$1_AP.json --cnr_maps
 
-#echo `date +"%D %T"` $1 'eddy QC'
-#eddy_quad tmp/$1_dwi_tp_eddy -idx tmp/eddyindex.txt -par tmp/acqparams.txt -m tmp/$1_dwi_b0_brain_mask_otsu.nii.gz -b tmp/$1_AP.bval -v -o tmp/eddyqc
+echo `date +"%D %T"` $1 'eddy QC'
+eddy_quad tmp/$1_DWI -idx tmp/eddyindex.txt -par tmp/acqparams.txt -m tmp/$1_AP_b0s_topup-applied_otsu_mask.nii.gz -b tmp/$1_AP.bval -v -o tmp/eddyqc
 
 #TODO run eddy-squeeze
 
