@@ -57,7 +57,7 @@ def mk_run_lists_pretopup(rawdir, list_len):
             f.close()
             
             
-def run_topup(sid):
+def run_topup(sid, pre_cmd):
     """
     Using subprocess this fn runs the fsl topup. Noting more nothing less. 
 
@@ -65,6 +65,9 @@ def run_topup(sid):
     ----------
     sid : STR
         Subject id with 'sub' prefix.
+    pre_cmd : STR
+        Command that should be fed to bash before running the subprocess,
+        this can be source or freesurfer activation, divide comands with ';'
 
     Returns
     -------
@@ -73,6 +76,11 @@ def run_topup(sid):
     """
     import subprocess as sb
     
+    tp_cmd = f'topup --imain=tmp/${sid}_AP-PA_b0s --datain=tmp/acqparams.txt \
+        --out=tmp/{sid}_AP-PA_topup -v --fout=tmp/{sid}_AP-PA_fout \
+        --iout=tmp/{sid}_AP-PA_iout --config=b02b0.cnf'
+    
+    sb.call(pre_cmd + ' ' + tp_cmd, shell=True)
     
     
 
@@ -275,6 +283,16 @@ def mk_brain_edges(sid):
     -------
     None.
 
+    """
+    
+    # TODO Try with PIL filters
+    """
+    from PIL import Image
+    with Image.open(filename) as img:
+        img.load()
+    >>> img_gray = img.convert("L")
+    >>> edges = img_gray.filter(ImageFilter.FIND_EDGES)
+    >>> edges.show()
     """
     
     import matplotlib.pyplot as plt
