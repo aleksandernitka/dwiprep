@@ -1,9 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
 
-
-"""
 
 def mk_run_lists_pretopup(rawdir, list_len):
     """
@@ -34,8 +31,6 @@ def mk_run_lists_pretopup(rawdir, list_len):
     subs = [f for f in os.listdir(rawdir) if f.startswith('sub-')]
 
     
-    # each list shall be of len:
-    list_len = 2
     # list to hold required lens for each list
     lens = []
     # keep the tally up
@@ -54,7 +49,7 @@ def mk_run_lists_pretopup(rawdir, list_len):
     
     # for each sub-list write a file
     for i, l in enumerate(outputs):
-        with open(f'runList_{i}.csv', 'w') as f:
+        with open(f'tmp/runList_{i}.csv', 'w') as f:
             # each subjects needs to be written to a file
             for j in outputs[i]:
                 f.write(f'{j}\n')

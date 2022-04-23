@@ -418,7 +418,13 @@ def rm_noise_p2s(sid):
     from shutil import rmtree as rmt
     from dipy.denoise.patch2self import patch2self
     from datetime import datetime as dt
-    # TODO add histeq and cmap
+    from dipy.core.histeq import histeq
+    from dipy.denoise.noise_estimate import estimate_sigma
+    
+    xcmp = 'gray'
+    
+    # Number of coils used in scan
+    nC = 32
     
     # Load dwi
     dwi_ap, dwi_ap_affine = load_nifti(os.path.join('tmp', sid, f'{sid}_AP.nii'))
@@ -428,14 +434,29 @@ def rm_noise_p2s(sid):
     bvals_ap = np.loadtxt(os.path.join('tmp', sid, f'{sid}_AP.bval'))
     bvals_pa = np.array([5.,5.,5.,5.,5.])
     
+    # Calculate noise standaard deviation for raw data
+    sigma_ap_raw = estimate_sigma(dwi_ap, N = nC)
+    sigma_pa_raw = estimate_sigma(dwi_pa, N = nC)
+    
     # Process AP
     dwi_ap_den = patch2self(dwi_ap, bvals_ap, model='ols', shift_intensity=True, clip_negative_vals=False, b0_threshold=50, verbose=True)
+    # calculate sigma of noise
+    sigma_ap_den = estimate_sigma(dwi_ap_den, N = nC)
     # Save NII
     save_nifti(os.path.join('tmp', sid, f'{sid}_AP_denoised.nii.gz'), dwi_ap_den, dwi_ap_affine)
     
     # Process PA
     dwi_pa_den = patch2self(dwi_pa, bvals_pa, model='ols', shift_intensity=True, clip_negative_vals=False, b0_threshold=50, verbose=True)
+    # calculate sigma of noise
+    sigma_pa_den = estimate_sigma(dwi_pa_den, N = nC)
+    # Save NII
     save_nifti(os.path.join('tmp', sid, f'{sid}_PA_denoised.nii.gz'), dwi_pa_den, dwi_pa_affine)
+    
+    # Save noise estimates
+    np.save(f'tmp/{sid}/{sid}_AP_sigma_noise_raw.npy', sigma_ap_raw)
+    np.save(f'tmp/{sid}/{sid}_PA_sigma_noise_raw.npy', sigma_pa_raw)
+    np.save(f'tmp/{sid}/{sid}_AP_sigma_noise_p2s.npy', sigma_ap_den)
+    np.save(f'tmp/{sid}/{sid}_PA_sigma_noise_p2s.npy', sigma_pa_den)
     
     # Plot all volumes
     s = 42 # slice
@@ -453,27 +474,53 @@ def rm_noise_p2s(sid):
                 intensity shifting and negative values clipping enabled.\
                     </p><br><a href='#pa'>Jump to PA</a><br><h2 id = 'ap'>AP Volumes</h2><br><br>"
     
+    def plt_denoised(raw, den, direction, sigma_raw, sigma_den, html_file):
+        # TODO finish this fn
+        """
+        Creates control plots after denoisings procedure has been completed
+
+        Parameters
+        ----------
+        raw : TYPE
+            DESCRIPTION.
+        den : TYPE
+            DESCRIPTION.
+        direction : TYPE
+            DESCRIPTION.
+        sigma_raw : TYPE
+            DESCRIPTION.
+        sigma_den : TYPE
+            DESCRIPTION.
+        html_file : TYPE
+            DESCRITOPN.
+
+        Returns
+        -------
+        None.
+
+        """
+    
     # plots for AP
     for i, vs in enumerate(range(0, dwi_ap_den.shape[3])):
     
     
         # computes the residuals
-        rms_diff = np.sqrt((dwi_ap[:,:,s,vs] - dwi_ap_den[:,:,s,vs]) ** 2)
+        rms_diff = np.sqrt(abs((dwi_ap[:,:,s,vs] - dwi_ap_den[:,:,s,vs]) ** 2))
     
         fig1, ax = plt.subplots(1, 3, figsize=(12, 6),subplot_kw={'xticks': [], 'yticks': []})
     
         fig1.subplots_adjust(hspace=0.05, wspace=0.05)
         fig1.suptitle(f'{sid} AP vol={vs} bval={int(bvals_ap[i])}', fontsize =20)
     
-        ax.flat[0].imshow(dwi_ap[:,:,s,vs].T, cmap='gray', interpolation='none',origin='lower')
-        ax.flat[0].set_title(f'Original, vol {vs}')
-        ax.flat[1].imshow(dwi_ap_den[:,:,s,vs].T, cmap='gray', interpolation='none',origin='lower')
-        ax.flat[1].set_title('Denoised Output')
-        ax.flat[2].imshow(rms_diff.T, cmap='gray', interpolation='none',origin='lower')
+        ax.flat[0].imshow(dwi_ap[:,:,s,vs].T, cmap=xcmp, interpolation='none',origin='lower')
+        ax.flat[0].set_title('Original, ' + r'$\sigma_{noise}$' + f' = {round(sigma_ap_raw[i])}')
+        ax.flat[1].imshow(dwi_ap_den[:,:,s,vs].T, cmap=xcmp, interpolation='none',origin='lower')
+        ax.flat[1].set_title('Denoised, ' + r'$\sigma_{noise}$' + f' = {round(sigma_ap_den[i])}')
+        ax.flat[2].imshow(rms_diff.T, cmap=xcmp, interpolation='none',origin='lower')
         ax.flat[2].set_title('Residuals')
         
         sfig = os.path.join(png_dir, f'{sid}_ap_bv-{int(bvals_ap[i])}_v-{vs}.png')
-        hfig = os.path.join(sid, f'{sid}_p2s_pngs', f'{sid}_ap_bv-{int(bvals_ap[i])}_v-{vs}.png')
+        hfig = os.path.join(f'{sid}_p2s_pngs', f'{sid}_ap_bv-{int(bvals_ap[i])}_v-{vs}.png')
         fig1.savefig(sfig)
         
         # Add to html
@@ -483,6 +530,7 @@ def rm_noise_p2s(sid):
     html+="<br><br><h2 id = 'pa'>PA Volumes</h2><br><br><p>Please note that PA volumes were denoised assuming five b-vals of 5.<br><br>"
     
     # Plots for PA
+    # FIX make one function to make both plot types
     for i, vs in enumerate(range(0, dwi_pa_den.shape[3])):
     
         # computes the residuals
@@ -493,15 +541,15 @@ def rm_noise_p2s(sid):
         fig1.subplots_adjust(hspace=0.05, wspace=0.05)
         fig1.suptitle(f'{sid} PA vol={vs} bval={int(bvals_pa[i])}', fontsize=20)
     
-        ax.flat[0].imshow(dwi_pa[:,:,s,vs].T, cmap='gray', interpolation='none',origin='lower')
+        ax.flat[0].imshow(histeq(dwi_pa[:,:,s,vs].T), cmap=xcmp, interpolation='none',origin='lower')
         ax.flat[0].set_title(f'Original, vol {vs}')
-        ax.flat[1].imshow(dwi_pa_den[:,:,s,vs].T, cmap='gray', interpolation='none',origin='lower')
+        ax.flat[1].imshow(histeq(dwi_pa_den[:,:,s,vs].T), cmap=xcmp, interpolation='none',origin='lower')
         ax.flat[1].set_title('Denoised Output')
-        ax.flat[2].imshow(rms_diff.T, cmap='gray', interpolation='none',origin='lower')
+        ax.flat[2].imshow(histeq(rms_diff.T), cmap=xcmp, interpolation='none',origin='lower')
         ax.flat[2].set_title('Residuals')
     
         sfig = os.path.join(png_dir, f'{sid}_pa_bv-{int(bvals_pa[i])}_v-{vs}.png')
-        hfig = os.path.join(sid, f'{sid}_p2s_pngs', f'{sid}_pa_bv-{int(bvals_pa[i])}_v-{vs}.png')
+        hfig = os.path.join(f'{sid}_p2s_pngs', f'{sid}_pa_bv-{int(bvals_pa[i])}_v-{vs}.png')
         fig1.savefig(sfig)
         
         # Add to html

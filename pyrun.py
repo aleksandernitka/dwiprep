@@ -31,13 +31,13 @@ cmd_topup = f'topup --imain=tmp/{sid}_AP-PA_b0s --datain=tmp/acqparams.txt --out
 sb.call(cmd_setup + cmd_topup, shell= True)
 '''
 
-topup = TOPUP()
-topup.inputs.in_file = os.path.join("tmp", f"{sid}_AP-PA_b0s.nii.gz")
-topup.inputs.encoding_file = os.path.join("tmp", "acqparams.txt")
-topup.inputs.output_type = "NIFTI_GZ"
-topup.out_corrected = os.path.join("tmp", f"{sid}_AP-PA_b0s_topup")
-topup.out_jacs = os.path.join("tmp", f"{sid}_AP-PA_b0s_topup_jacs")
-topup.out_movpar = os.path.join("tmp", f"{sid}_AP-PA_b0s_topup_movpar.txt")
-topup.out_warps = os.path.join("tmp", f"{sid}_AP-PA_b0s_topup_warps")
-topup.cmdline
-res = topup.run()
+    topup = TOPUP()
+    topup.inputs.in_file = "tmp_done/sub-64742_AP.nii"
+    topup.inputs.encoding_file = os.path.join("tmp_done", "acqparams.txt")
+    topup.inputs.output_type = "NIFTI_GZ"
+    topup.out_corrected = os.path.join("tmp_done", f"{sid}_AP-PA_b0s_topup")
+    topup.out_jacs = os.path.join("tmp_done", f"{sid}_AP-PA_b0s_topup_jacs")
+    topup.out_movpar = os.path.join("tmp_done", f"{sid}_AP-PA_b0s_topup_movpar.txt")
+    topup.out_warps = os.path.join("tmp_done", f"{sid}_AP-PA_b0s_topup_warps")
+    topup.cmdline
+#res = topup.run()

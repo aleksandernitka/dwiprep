@@ -20,15 +20,16 @@ def run_list_pre_topup(slist):
     @author: aleksander nitka
     """
     
-    from os.path import join, exists, makedir
+    from os.path import join, exists
+    from os import mkdir
     import numpy as np
     from dwiprep import cp_dwi_files, rm_noise_p2s, mk_gradients, mk_b0s, mk_acq_params
     import subprocess as sb
         
     subs = np.loadtxt(slist, delimiter = '\n', dtype=str)
     
-    HMRIDIR = ''
-    RAWDATA = ''
+    HMRIDIR = '/mnt/clab/COST_mri/derivatives/hMRI/'
+    RAWDATA = '/mnt/clab/COST_mri/rawdata/'
     QUALDIR = ''
     
     for s in subs:
@@ -38,14 +39,16 @@ def run_list_pre_topup(slist):
             
             if exists(join(HMRIDIR, s, 'Results', f'{s}_synthetic_T1w.nii')) == True:
                 
-                makedir(join('tmp', s))
+                mkdir(join('tmp', s))
                 
                 # Copy all required files
                 cp_dwi_files(s, HMRIDIR, RAWDATA, f'tmp/{s}')
                 
                 # Make gradients
+                mk_gradients(s)
                 
                 # Denoise p2s
+                rm_noise_p2s(s)
                 
                 # Extract b0s
                 
