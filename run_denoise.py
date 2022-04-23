@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import sys
 
-def run_desnoise(slist):
+def run_denoise(slist):
     """
     Run DWI denoising using DIPY patch2self
 
@@ -25,13 +26,22 @@ def run_desnoise(slist):
     import numpy as np
     from dwiprep import cp_dwi_files, rm_noise_p2s, mk_gradients
     import subprocess as sb
+    from datetime import datetime as dt
+    
+    if exists('send_telegram.py'):
+        from send_telegram import sendtel
+        telegram = True
+    else:
+        telegram = False
       
     subs = np.loadtxt(slist, delimiter = '\n', dtype=str)
     
-    HMRIDIR = '/mnt/clab/COST_mri/derivatives/hMRI/'
-    RAWDATA = '/mnt/clab/COST_mri/rawdata/'
-    OUTPDIR = '/mnt/clab/COST_mri/derivatives/dwi/preproc/'
+    HMRIDIR = '/mnt/nasips/COST_mri/derivatives/hMRI/'
+    RAWDATA = '/mnt/nasips/COST_mri/rawdata/'
+    OUTPDIR = '/mnt/nasips/COST_mri/derivatives/dwi/preproc/'
     
+    if telegram:
+        sendtel('Denoising started')
     
     for idx, s in enumerate(subs):
         
@@ -72,6 +82,13 @@ def run_desnoise(slist):
                 e.write('error copying dwi files.')
                 e.close()
 
+        with open('denoise_done.log', 'a') as l:
+            l.write(f'{dt.now()} {s}\n')
+            l.close()
             
                 
-        
+    if telegram:
+        sendtel('Denoising finished')
+
+run_denoise(sys.argv[1])
+
