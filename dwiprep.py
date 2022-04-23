@@ -56,7 +56,7 @@ def mk_run_lists_pretopup(rawdir, list_len):
                 f.write(f'{j}\n')
             f.close()
           
-def run_topup(sid, pre_cmd):
+def run_topup(sid):
     """
     Using subprocess this fn runs the fsl topup. Noting more nothing less. 
 
@@ -64,9 +64,6 @@ def run_topup(sid, pre_cmd):
     ----------
     sid : STR
         Subject id with 'sub' prefix.
-    pre_cmd : STR
-        Command that should be fed to bash before running the subprocess,
-        this can be source or freesurfer activation, divide comands with ';'
 
     Returns
     -------
@@ -75,24 +72,16 @@ def run_topup(sid, pre_cmd):
     """
     import subprocess as sb
     
-    """
-    tp_cmd = f'topup --imain=tmp/{sid}_AP-PA_b0s --datain=tmp/acqparams.txt \
-        --out=tmp/{sid}_AP-PA_topup -v --fout=tmp/{sid}_AP-PA_fout \
-        --iout=tmp/{sid}_AP-PA_iout -m jac --config=b02b0.cnf'
-        
-    tp_cmd = f'topup --imain=tmp/{sid}_AP-PA_b0s --datain=tmp/acqparams.txt \
-        --out=tmp/{sid}_AP-PA_topup -v --fout=tmp/{sid}_AP-PA_fout \
-        --iout=tmp/{sid}_AP-PA_iout -m jac --jacout={sid}_jac --dfout={sid}_warpfield \
-        --config=b02b0.cnf'
-    """
-    tp_cmd = f'topup --config=b02b0.cfn --datain=tmp/{sid}/acqparams.txt \
+    # note the config file copied from /usr/local/fsl/etc/flirtsch/b02b0.cnf
+    
+    tp_cmd = f'topup --config=b02b0.cnf --datain=tmp/{sid}/acqparams.txt \
         --imain=tmp/{sid}/{sid}_AP-PA_b0s --out=tmp/{sid}/{sid}_AP-PA_topup \
         --iout=tmp/{sid}/{sid}_iout --fout=tmp/{sid}/{sid}_fout \
-        --m jac --jacout=tmp/{sid}/{sid}_jac --logout=tmp/{sid}/{sid}_topup.log \
+        --jacout=tmp/{sid}/{sid}_jac --logout=tmp/{sid}/{sid}_topup.log \
         --rbmout=tmp/{sid}/{sid}_xfm --dfout=tmp/{sid}/{sid}_warpfield'
     
     
-    sb.run(pre_cmd + ' ' + tp_cmd, shell=True)
+    sb.run(tp_cmd, shell=True)
 
 def mk_bet_brain_mask(sid, pre_cmd):
     """
@@ -368,23 +357,23 @@ def mk_acq_params(sid):
     apj = [f for f in os.listdir(f"tmp/{sid}/") if "_AP" in f and f.endswith("json")][0]
     paj = [f for f in os.listdir(f"tmp/{sid}/") if "_PA" in f and f.endswith("json")][0]
 
-
-    with open(os.path.join("tmp", apj), "r") as f:
+    # TODO make one function for both
+    with open(os.path.join("tmp", sid, apj), "r") as f:
         json_ap = json.load(f)
         trt_ap = json_ap["TotalReadoutTime"]
         print(f"{sid} AP TotalReadoutTime: {trt_ap}")
         f.close()
         # write trt to file so it can be cat later
-        with open(os.path.join("tmp", "trt_ap.txt"), "w") as t:
+        with open(os.path.join("tmp", sid, "trt_ap.txt"), "w") as t:
             t.write(str(trt_ap))
             t.close()
 
-    with open(os.path.join("tmp", paj), "r") as f:
+    with open(os.path.join("tmp", sid, paj), "r") as f:
         json_pa = json.load(f)
         trt_pa = json_pa["TotalReadoutTime"]
         print(f"{sid} PA TotalReadoutTime: {trt_pa}")
         f.close()
-        with open(os.path.join("tmp", "trt_pa.txt"), "w") as t:
+        with open(os.path.join("tmp", sid, "trt_pa.txt"), "w") as t:
             t.write(str(trt_pa))
             t.close()
     
@@ -752,3 +741,132 @@ def cp_dwi_files(sid, hmri, rawdata, where):
     except:
         print(f'{sid} error copying t1w')
         return None
+
+def plt_topup(sid):
+    """
+    Created on Wed Apr 13 18:22:29 2022
+
+    @author: aleksander
+    """
+    
+    import matplotlib.pyplot as plt
+    from dipy.io.image import load_nifti
+    import os
+    import numpy as np
+    from dipy.core.histeq import histeq
+    from scipy.ndimage import gaussian_filter as gauss # for blur
+    import cmocean
+
+    # load dwi b0s
+    dwi_ap, __ = load_nifti(os.path.join('tmp', sid, f'{sid}_AP_b0s_mean.nii.gz'))
+    dwi_pa, __ = load_nifti(os.path.join('tmp', sid, f'{sid}_PA_b0s_mean.nii.gz'))
+    
+    fieldcoef, __ = load_nifti(os.path.join('tmp', sid, f'{sid}_AP-PA_topup_fieldcoef.nii.gz'))
+    fout, __ = load_nifti(os.path.join('tmp', sid, f'{sid}_fout.nii.gz'))
+    iout,__ = load_nifti(os.path.join('tmp', sid, f'{sid}_iout.nii.gz'))
+
+    sigma = 3  # for smoothing
+    cmapx = cmocean.cm.tarn # color map 
+
+    # control plot ap and pa
+    fig1, ax = plt.subplots(3, 3, figsize=(8, 6), subplot_kw={'xticks': [], 'yticks': []})
+    fig1.subplots_adjust(hspace=0.05, wspace=0.05)
+
+    
+    ax.flat[0].set_title('AP_b0')
+    ax.flat[0].imshow(histeq(dwi_ap[:,:,42].T), interpolation = 'none', origin = 'lower', cmap = cmapx)
+    ax.flat[1].set_title('PA_b0')
+    ax.flat[1].imshow(histeq(dwi_pa[:,:,42].T), interpolation = 'none', origin = 'lower', cmap = cmapx)
+    ax.flat[2].set_title('gauss(rms)')
+    rms_diff = np.sqrt((histeq(dwi_ap[:,:,42]) - histeq(dwi_pa[:,:,42])) ** 2)
+    ax.flat[2].imshow(gauss(rms_diff.T, sigma), interpolation = 'none', origin = 'lower', cmap = cmapx)
+    
+    ax.flat[3].imshow(histeq(dwi_ap[:,50,:].T), interpolation = 'none', origin = 'lower', cmap = cmapx)
+    ax.flat[4].imshow(histeq(dwi_pa[:,50,:].T), interpolation = 'none', origin = 'lower', cmap = cmapx)
+    rms_diff = np.sqrt((histeq(dwi_ap[:,50,:]) - histeq(dwi_pa[:,50,:])) ** 2)
+    ax.flat[5].imshow(gauss(rms_diff.T, sigma), interpolation = 'none', origin = 'lower', cmap = cmapx)
+    
+    ax.flat[6].imshow(histeq(dwi_ap[50,:,:].T), interpolation = 'none', origin = 'lower', cmap = cmapx)
+    ax.flat[7].imshow(histeq(dwi_pa[50,:,:].T), interpolation = 'none', origin = 'lower', cmap = cmapx)
+    rms_diff = np.sqrt((histeq(dwi_ap[50,:,:]) - histeq(dwi_pa[50,:,:])) ** 2)
+    ax.flat[8].imshow(gauss(rms_diff.T, sigma), interpolation = 'none', origin = 'lower', cmap = cmapx)
+
+    
+    fig1.savefig(os.path.join('tmp', sid, f'{sid}_topup_appa_cplot.png'))
+    plt.close()
+    
+    # control plot fieldcoef, fout, iout
+    fig2, ax = plt.subplots(1, 3, figsize=(8, 3), subplot_kw={'xticks': [], 'yticks': []})
+    fig2.subplots_adjust(hspace=0.01, wspace=0.05)
+    ax.flat[0].set_title('fieldcoef')
+    ax.flat[0].imshow(fieldcoef[:,:,42].T, interpolation = 'none', origin = 'lower', cmap = cmapx)
+    ax.flat[1].set_title('fout')
+    ax.flat[1].imshow(fout[:,:,42].T, interpolation = 'none', origin = 'lower', cmap = cmapx)
+    ax.flat[2].set_title('iout')
+    ax.flat[2].imshow(fout[:,:,42].T, interpolation = 'none', origin = 'lower', cmap = cmapx)
+    fig2.savefig(os.path.join('tmp', sid, f'{sid}_topup_fico_cplot.png'))
+    plt.close()
+    
+
+def mv_post_topup(sid):
+    """
+    Topup creates sequences of control images (jac, warpfield) and matrices (xfm)
+    this fn moves those files into separate folders
+
+    Parameters
+    ----------
+    sid : TYPE
+        DESCRIPTION.
+
+    Returns
+    -------
+    None.
+
+    """
+    
+    from os import mkdir
+    from os import listdir
+    from os.path import join 
+    import shutil
+    
+    jacs = [f for f in listdir(join('tmp', sid)) if '_jac_' in f]
+    warp = [f for f in listdir(join('tmp', sid)) if '_warpfield_' in f]
+    xfms = [f for f in listdir(join('tmp', sid)) if '_xfm_' in f]
+
+    mkdir(join('tmp', sid, 'topup_jacs'))
+    mkdir(join('tmp', sid, 'topup_warpfields'))
+    mkdir(join('tmp', sid, 'topup_xfms'))
+
+    for f in jacs:
+        shutil.move(join('tmp', sid, f), join('tmp', sid,'topup_jacs', f))
+        
+    for f in warp:
+        shutil.move(join('tmp', sid, f), join('tmp', sid,'topup_warpfields', f))
+        
+    for f in xfms:
+        shutil.move(join('tmp', sid, f), join('tmp', sid,'topup_xfms', f))
+        
+def run_apply_topup(sid):
+    """
+    Runs applytopup, not required as Eddy handels the distortion correction,
+    but to run Eddy we need a brain mask so we need an undistorted image to get 
+    one (?). It takes only a while anyway.
+
+    Parameters
+    ----------
+    sid : STR
+        DESCRIPTION.
+
+    Returns
+    -------
+    None.
+
+    """
+    
+    import subprocess as sb
+    
+    cmd = f'applytopup -i tmp/{sid}/{sid}_AP_denoised.nii.gz -x 1 \
+        -a tmp/{sid}/acqparams.txt -t tmp/{sid}/{sid}_AP-PA_topup \
+        -o tmp/{sid}/{sid}_AP_topup-applied -v -m jac'
+        
+    sb.run(cmd, shell=True)
