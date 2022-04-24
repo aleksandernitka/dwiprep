@@ -523,18 +523,18 @@ def rm_noise_p2s(sid):
     for i, vs in enumerate(range(0, dwi_pa_den.shape[3])):
     
         # computes the residuals
-        rms_diff = np.sqrt((dwi_pa[:,:,s,vs] - dwi_pa_den[:,:,s,vs]) ** 2)
+        rms_diff = np.sqrt(abs(dwi_pa[:,:,s,vs] - dwi_pa_den[:,:,s,vs]) ** 2)
     
         fig1, ax = plt.subplots(1, 3, figsize=(12, 6),subplot_kw={'xticks': [], 'yticks': []})
     
         fig1.subplots_adjust(hspace=0.05, wspace=0.05)
         fig1.suptitle(f'{sid} PA vol={vs} bval={int(bvals_pa[i])}', fontsize=20)
     
-        ax.flat[0].imshow(histeq(dwi_pa[:,:,s,vs].T), cmap=xcmp, interpolation='none',origin='lower')
-        ax.flat[0].set_title(f'Original, vol {vs}')
-        ax.flat[1].imshow(histeq(dwi_pa_den[:,:,s,vs].T), cmap=xcmp, interpolation='none',origin='lower')
-        ax.flat[1].set_title('Denoised Output')
-        ax.flat[2].imshow(histeq(rms_diff.T), cmap=xcmp, interpolation='none',origin='lower')
+        ax.flat[0].imshow(dwi_pa[:,:,s,vs].T, cmap=xcmp, interpolation='none',origin='lower')
+        ax.flat[0].set_title(f'Original, ' + f'$\sigma_{noise}$' + r'$\sigma_{noise}$' + f' = {round(sigma_pa_raw[i])}')
+        ax.flat[1].imshow(dwi_pa_den[:,:,s,vs].T, cmap=xcmp, interpolation='none',origin='lower')
+        ax.flat[1].set_title('Denoised, ' + r'$\sigma_{noise}$' + f' = {round(sigma_pa_den[i])}')
+        ax.flat[2].imshow(rms_diff.T, cmap=xcmp, interpolation='none', origin='lower')
         ax.flat[2].set_title('Residuals')
     
         sfig = os.path.join(png_dir, f'{sid}_pa_bv-{int(bvals_pa[i])}_v-{vs}.png')
