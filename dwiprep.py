@@ -531,7 +531,7 @@ def rm_noise_p2s(sid):
         fig1.suptitle(f'{sid} PA vol={vs} bval={int(bvals_pa[i])}', fontsize=20)
     
         ax.flat[0].imshow(dwi_pa[:,:,s,vs].T, cmap=xcmp, interpolation='none',origin='lower')
-        ax.flat[0].set_title(f'Original, ' + f'$\sigma_{noise}$' + r'$\sigma_{noise}$' + f' = {round(sigma_pa_raw[i])}')
+        ax.flat[0].set_title(f'Original, ' + r'$\sigma_{noise}$' + f' = {round(sigma_pa_raw[i])}')
         ax.flat[1].imshow(dwi_pa_den[:,:,s,vs].T, cmap=xcmp, interpolation='none',origin='lower')
         ax.flat[1].set_title('Denoised, ' + r'$\sigma_{noise}$' + f' = {round(sigma_pa_den[i])}')
         ax.flat[2].imshow(rms_diff.T, cmap=xcmp, interpolation='none', origin='lower')
