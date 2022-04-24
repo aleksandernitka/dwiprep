@@ -4,11 +4,10 @@
 import sys
 
 def compare_denoise(sid):
-    
     """
-    Compare multiple denoising strategies using dipy 1.5.0 provided algos
-    Assumes AP, bval, bvec data in 'tmp' dir. 
+    Compare the denoised data with the original data.
     
+
     Created on Thu Apr 21 15:20:57 2022
     @author: aleksander
     """
@@ -132,15 +131,13 @@ def compare_denoise(sid):
         np.save(os.path.join(odir, f'{sid}_sigma_p2s.npy'), sigma_p2s)
        
     # run functions:
-    #denoise_gauss(sid=sid)
-    #denoise_nlm(sid=sid)
-    #denoise_mppca(sid=sid)
+    denoise_gauss(sid=sid)
+    denoise_nlm(sid=sid)
+    denoise_mppca(sid=sid)
     denoise_lpca(sid=sid)
-    denoise_p2s(sid=sid)
-     
-    # Save raw image
-    save_nifti(os.path.join(odir, f'{sid}_AP.nii.gz'), dwi_ap, dwi_ap_affine)
-    # save gradtable
-    pickle.dump(gt, os.path.join(odir, f'{sid}_gt.obj'))
+    #denoise_p2s(sid=sid)
+    
+    # Save gradients
+    np.save(os.path.join(odir, f'{sid}_bvals.npy'), gt.bvals)
     
 compare_denoise(sys.argv[1])
