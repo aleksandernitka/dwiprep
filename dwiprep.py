@@ -29,7 +29,6 @@ def mk_run_lists_pretopup(rawdir, list_len):
     
     subs = [f for f in os.listdir(rawdir) if f.startswith('sub-')]
 
-    
     # each list shall be of len:
     list_len = 2
     # list to hold required lens for each list
@@ -42,7 +41,7 @@ def mk_run_lists_pretopup(rawdir, list_len):
         lens.append(list_len)
         totaln = totaln - list_len
     lens.append(totaln)
-    totaln = totaln - totaln # Should 0
+    totaln = totaln - totaln  # Should 0
     
     # this should generate list of lists
     it = iter(subs)
@@ -55,7 +54,8 @@ def mk_run_lists_pretopup(rawdir, list_len):
             for j in outputs[i]:
                 f.write(f'{j}\n')
             f.close()
-          
+
+
 def run_topup(sid):
     """
     Using subprocess this fn runs the fsl topup. Noting more nothing less. 
@@ -79,7 +79,6 @@ def run_topup(sid):
         --iout=tmp/{sid}/{sid}_iout --fout=tmp/{sid}/{sid}_fout \
         --jacout=tmp/{sid}/{sid}_jac --logout=tmp/{sid}/{sid}_topup.log \
         --rbmout=tmp/{sid}/{sid}_xfm --dfout=tmp/{sid}/{sid}_warpfield'
-    
     
     sb.run(tp_cmd, shell=True)
 
@@ -122,8 +121,8 @@ def mk_bet_brain_mask(sid, pre_cmd):
     ax.flat[0].imshow(histeq(dwi[:,:,42].T), interpolation = 'none', origin = 'lower', cmap = cmocean.cm.tarn)
     ax.flat[0].imshow(mask[:,:,42].T, alpha=.5, interpolation = 'none', origin = 'lower')
     
-    ax.flat[1].imshow(histeq(dwi[:,50,:].T), interpolation = 'none', origin = 'lower', cmap = cmocean.cm.tarn)
-    ax.flat[1].imshow(mask[:,50,:].T, alpha=.5, interpolation = 'none', origin = 'lower')
+    ax.flat[1].imshow(histeq(dwi[:,50,:].T), interpolation='none', origin = 'lower', cmap = cmocean.cm.tarn)
+    ax.flat[1].imshow(mask[:,50,:].T, alpha=.5, interpolation='none', origin = 'lower')
     
     ax.flat[2].imshow(histeq(dwi[50,:,:].T), interpolation = 'none', origin = 'lower', cmap = cmocean.cm.tarn)
     ax.flat[2].imshow(mask[50,:,:].T, alpha=.5, interpolation = 'none', origin = 'lower')
@@ -181,9 +180,18 @@ def mk_otsu_brain_mask(sid):
     fig1.savefig(os.path.join('tmp', sid, f'{sid}_brainmask_otsu.png'))
 
 def mk_index_eddy(sid):
-    
     """
-    Eddy requires index file with has the same amount of rows as the dwi has volumes
+    Creates index for Eddy.
+
+    Parameters
+    ----------
+    sid : str
+        Subject id with 'sub' prefix.
+
+    Returns
+    -------
+    - index file: eddyindex.txt
+
     """
     
     import os
@@ -247,10 +255,19 @@ def mk_brain_edges(sid):
         ax.flat[n].imshow(edg.T, interpolation = 'none', origin = 'lower', cmap='gray')
              
 def mk_b0s_topup_applied(sid):
-
     """
-    Extracts all b0s from the topup corrected volume (dwi)
-    
+    Extracts b0s from topup-applied DWI.
+
+    Parameters
+    ----------
+    sid : str
+        Subject id with 'sub' prefix.
+
+    Returns
+    -------
+    - _AP_b0s_topup-applied.nii.gz
+    - _AP_topup-applied_b0s.png (control plot)
+
     Created on Tue Apr 19 10:27:49 2022
     @author: aleksander nitka
     """
