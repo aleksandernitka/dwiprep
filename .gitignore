@@ -16,3 +16,6 @@ tmp_done/
 send_telegram.py
 
 denoise_done.log
+.idea/
+denoise_test/
+
