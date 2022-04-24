@@ -38,13 +38,14 @@ def compare_denoise(sid):
     
     # create or clear output dir
     tdir = 'denoise_test'
-    
+    """    
     if os.path.exists(tdir) == False:
         os.mkdir(tdir)
     else:
         rmt(tdir)
         os.mkdir(tdir)
-        
+    
+    """
     # create ss output dir
     odir = os.path.join(tdir, sid)
     os.mkdir(odir)
@@ -57,8 +58,8 @@ def compare_denoise(sid):
     
     # noise estamate needs number of coils with which the data was acquired
     nCoils = 32
-    sigma_base = estimate_sigma(dwi_ap, N=nCoils)
-    np.save(os.path.join(odir, f'{sid}_sigma_base.npy'), sigma_base)
+    #sigma_base = estimate_sigma(dwi_ap, N=nCoils)
+    #np.save(os.path.join(odir, f'{sid}_sigma_base.npy'), sigma_base)
     
     # Denoise with gaussian blur
     def denoise_gauss(sid):
@@ -135,7 +136,7 @@ def compare_denoise(sid):
     denoise_nlm(sid=sid)
     denoise_mppca(sid=sid)
     denoise_lpca(sid=sid)
-    #denoise_p2s(sid=sid)
+    denoise_p2s(sid=sid)
     
     # Save gradients
     np.save(os.path.join(odir, f'{sid}_bvals.npy'), gt.bvals)
