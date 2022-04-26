@@ -4,12 +4,24 @@
 import sys
 from os import listdir as ls
 from os.path import join
+from random import sample
+from shutil import copy
 
-p2sdir = '/mnt/nasips/COST_mri/derivatives/dwi/preproc/'
+p2sdir = '/mnt/clab/COST_mri/derivatives/dwi/preproc/'
 
 subs = [f for f in ls(p2sdir) if f.startswith('sub-')]
 
-print(len(subs))
+samp = sample(subs, 25)
+
+for i, s in enumerate(samp):
+
+    print(f'{s} {i+1} processing')
+
+    copy(join(p2sdir, s, f'{s}_AP.nii'), join('tmp', f'{s}_AP.nii'))
+    copy(join(p2sdir, s, f'{s}_AP.bval'), join('tmp', f'{s}_AP.bval'))
+    copy(join(p2sdir, s, f'{s}_AP.bvec'), join('tmp', f'{s}_AP.bvec'))
+    copy(join(p2sdir, s, f'{s}_AP_denoised.nii.gz'), join('tmp', f'{s}_AP_denoised.nii.gz'))
+    copy(join(p2sdir, s, f'{s}_AP_sigma_noise.npy'), join('tmp', f'{s}_AP_sigma_noise.npy'))
 
 
 def compare_denoise(sid):
@@ -23,13 +35,11 @@ def compare_denoise(sid):
 
     from dipy.io.image import load_nifti, save_nifti
     from dipy.core.gradients import gradient_table
-    #from dipy.core.histeq import histeq
-    #import matplotlib.pyplot as plt
     import numpy as np
     import os
     from time import time
-    #from shutil import rmtree as rmt
-    
+    import subprocess as sb
+
     # Import denoising algos
     from dipy.denoise.localpca import mppca
     from dipy.denoise.patch2self import patch2self
@@ -137,13 +147,35 @@ def compare_denoise(sid):
         # Save nii and noise params
         save_nifti(os.path.join(odir, f'{sid}_ap_p2s.nii.gz'), den_p2s, dwi_ap_affine)
         np.save(os.path.join(odir, f'{sid}_sigma_p2s.npy'), sigma_p2s)
-       
+    
+    def denoise_mrtrix(sid):
+        t = time()
+        print(f'{t} Started denoising with mrtrix mppca')
+        f_nii = os.path.join(odir, f'{sid}_AP.nii')
+        f_den = os.path.join(odir, f'{sid}_ap_mrtrix.nii.gz')
+        f_noi = os.path.join(odir, f'{sid}_ap_mrtrix_noise.nii.gz')
+        f_res = os.path.join(odir, f'{sid}_ap_mrtrix_resid.nii.gz')
+        sb.run(f'dwidenoise {f_nii} {f_den} -noise {f_noi}', shell = True)
+        sb.run(f'mrcalc {f_nii} {f_den} -subtract {f_res}', shell = True)
+        
+        den_mrtrix_t = time()-t
+        
+        print(f'{time()} Completed denoising with mrtrix, it has taken {den_mrtrix_t}')
+        # Save nii and noise params
+        sb.run(f'dwidenoise {f_nii} {f_den} -noise {f_noi}', shell = True)
+        # load nii
+        nii, __ = load_nifti(os.path.join(odir, f'{sid}_ap_mrtrix.nii.gz'))
+        sigma_mrtrix = estimate_sigma(nii, N=nCoils)
+        # save sigma
+        np.save(os.path.join(odir, f'{sid}_sigma_mrtrix.npy'), sigma_mrtrix)
+    
     # run functions:
-    #denoise_gauss(sid=sid)
-    #denoise_nlm(sid=sid)
-    #denoise_mppca(sid=sid)
-    #denoise_lpca(sid=sid)
-    denoise_p2s(sid=sid)
+    denoise_gauss(sid=sid)
+    denoise_nlm(sid=sid)
+    denoise_mppca(sid=sid)
+    denoise_lpca(sid=sid)
+    denoise_mrtrix(sid=sid)
+    # denoise_p2s(sid=sid)
     
     # Save gradients
     np.save(os.path.join(odir, f'{sid}_bvals.npy'), gt.bvals)
