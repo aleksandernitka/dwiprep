@@ -2,6 +2,15 @@
 # -*- coding: utf-8 -*-
 
 import sys
+from os import listdir as ls
+from os.path import join
+
+p2sdir = '/mnt/nasips/COST_mri/derivatives/dwi/preproc/'
+
+subs = [f for f in ls(p2sdir) if f.startswith('sub-')]
+
+print(len(subs))
+
 
 def compare_denoise(sid):
     """
@@ -14,12 +23,12 @@ def compare_denoise(sid):
 
     from dipy.io.image import load_nifti, save_nifti
     from dipy.core.gradients import gradient_table
-    from dipy.core.histeq import histeq
-    import matplotlib.pyplot as plt
+    #from dipy.core.histeq import histeq
+    #import matplotlib.pyplot as plt
     import numpy as np
     import os
     from time import time
-    from shutil import rmtree as rmt
+    #from shutil import rmtree as rmt
     
     # Import denoising algos
     from dipy.denoise.localpca import mppca
@@ -139,4 +148,4 @@ def compare_denoise(sid):
     # Save gradients
     np.save(os.path.join(odir, f'{sid}_bvals.npy'), gt.bvals)
     
-compare_denoise(sys.argv[1])
+#compare_denoise(sys.argv[1])
