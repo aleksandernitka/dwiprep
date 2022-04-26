@@ -19,9 +19,7 @@ def compare_denoise(sid):
     import numpy as np
     import os
     from time import time
-    import cmocean
     from shutil import rmtree as rmt
-    import pickle 
     
     # Import denoising algos
     from dipy.denoise.localpca import mppca
@@ -48,7 +46,7 @@ def compare_denoise(sid):
     """
     # create ss output dir
     odir = os.path.join(tdir, sid)
-    os.mkdir(odir)
+    #os.mkdir(odir)
     
     # Load all data
     dwi_ap, dwi_ap_affine = load_nifti(os.path.join('tmp', f'{sid}_AP.nii'))
@@ -132,10 +130,10 @@ def compare_denoise(sid):
         np.save(os.path.join(odir, f'{sid}_sigma_p2s.npy'), sigma_p2s)
        
     # run functions:
-    denoise_gauss(sid=sid)
-    denoise_nlm(sid=sid)
-    denoise_mppca(sid=sid)
-    denoise_lpca(sid=sid)
+    #denoise_gauss(sid=sid)
+    #denoise_nlm(sid=sid)
+    #denoise_mppca(sid=sid)
+    #denoise_lpca(sid=sid)
     denoise_p2s(sid=sid)
     
     # Save gradients
