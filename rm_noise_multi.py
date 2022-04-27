@@ -3,25 +3,16 @@
 
 import sys
 from os import listdir as ls
+from os import mkdir as mkd
 from os.path import join
 from random import sample
 from shutil import copy
+import subprocess as sb
 
 p2sdir = '/mnt/clab/COST_mri/derivatives/dwi/preproc/'
 
-subs = [f for f in ls(p2sdir) if f.startswith('sub-')]
-
-samp = sample(subs, 25)
-
-for i, s in enumerate(samp):
-
-    print(f'{s} {i+1} processing')
-
-    copy(join(p2sdir, s, f'{s}_AP.nii'), join('tmp', f'{s}_AP.nii'))
-    copy(join(p2sdir, s, f'{s}_AP.bval'), join('tmp', f'{s}_AP.bval'))
-    copy(join(p2sdir, s, f'{s}_AP.bvec'), join('tmp', f'{s}_AP.bvec'))
-    copy(join(p2sdir, s, f'{s}_AP_denoised.nii.gz'), join('tmp', f'{s}_AP_denoised.nii.gz'))
-    copy(join(p2sdir, s, f'{s}_AP_sigma_noise.npy'), join('tmp', f'{s}_AP_sigma_noise.npy'))
+# where the processed data is to be stored
+store = '/mnt/clab/aleksander/experiments/data/denoise_compare/'
 
 
 def compare_denoise(sid):
@@ -55,28 +46,23 @@ def compare_denoise(sid):
     
     # create or clear output dir
     tdir = 'denoise_test'
-    """    
     if os.path.exists(tdir) == False:
         os.mkdir(tdir)
-    else:
-        rmt(tdir)
-        os.mkdir(tdir)
     
-    """
     # create ss output dir
     odir = os.path.join(tdir, sid)
-    #os.mkdir(odir)
+    os.mkdir(odir)
     
     # Load all data
-    dwi_ap, dwi_ap_affine = load_nifti(os.path.join('tmp', f'{sid}_AP.nii'))
+    dwi_ap, dwi_ap_affine = load_nifti(os.path.join('tmp', sid, f'{sid}_AP.nii'))
     
     # load bval
-    gt = gradient_table(os.path.join('tmp', f'{sid}_AP.bval'), os.path.join('tmp', f'{sid}_AP.bvec') )
+    gt = gradient_table(os.path.join('tmp', sid, f'{sid}_AP.bval'), os.path.join('tmp', sid, f'{sid}_AP.bvec') )
     
     # noise estamate needs number of coils with which the data was acquired
     nCoils = 32
-    #sigma_base = estimate_sigma(dwi_ap, N=nCoils)
-    #np.save(os.path.join(odir, f'{sid}_sigma_base.npy'), sigma_base)
+    sigma_base = estimate_sigma(dwi_ap, N=nCoils)
+    np.save(os.path.join(odir, f'{sid}_sigma_base.npy'), sigma_base)
     
     # Denoise with gaussian blur
     def denoise_gauss(sid):
@@ -151,18 +137,14 @@ def compare_denoise(sid):
     def denoise_mrtrix(sid):
         t = time()
         print(f'{t} Started denoising with mrtrix mppca')
-        f_nii = os.path.join(odir, f'{sid}_AP.nii')
+        f_nii = os.path.join('tmp', sid,  f'{sid}_AP.nii')
         f_den = os.path.join(odir, f'{sid}_ap_mrtrix.nii.gz')
         f_noi = os.path.join(odir, f'{sid}_ap_mrtrix_noise.nii.gz')
         f_res = os.path.join(odir, f'{sid}_ap_mrtrix_resid.nii.gz')
         sb.run(f'dwidenoise {f_nii} {f_den} -noise {f_noi}', shell = True)
         sb.run(f'mrcalc {f_nii} {f_den} -subtract {f_res}', shell = True)
-        
         den_mrtrix_t = time()-t
-        
         print(f'{time()} Completed denoising with mrtrix, it has taken {den_mrtrix_t}')
-        # Save nii and noise params
-        sb.run(f'dwidenoise {f_nii} {f_den} -noise {f_noi}', shell = True)
         # load nii
         nii, __ = load_nifti(os.path.join(odir, f'{sid}_ap_mrtrix.nii.gz'))
         sigma_mrtrix = estimate_sigma(nii, N=nCoils)
@@ -179,5 +161,31 @@ def compare_denoise(sid):
     
     # Save gradients
     np.save(os.path.join(odir, f'{sid}_bvals.npy'), gt.bvals)
+
+subs = [f for f in ls(p2sdir) if f.startswith('sub-')]
+
+samp = sample(subs, 25)
+
+for i, s in enumerate(samp):
     
-#compare_denoise(sys.argv[1])
+    print(f'{s} {i+1} processing')
+        
+    mkd(join('tmp', s))
+
+    copy(join(p2sdir, s, f'{s}_AP.nii'), join('tmp', s, f'{s}_AP.nii'))
+    copy(join(p2sdir, s, f'{s}_AP.bval'), join('tmp', s, f'{s}_AP.bval'))
+    copy(join(p2sdir, s, f'{s}_AP.bvec'), join('tmp', s, f'{s}_AP.bvec'))
+    copy(join(p2sdir, s, f'{s}_AP_denoised.nii.gz'), join('tmp', s, f'{s}_AP_denoised.nii.gz'))
+    copy(join(p2sdir, s, f'{s}_AP_sigma_noise_p2s.npy'), join('tmp', s, f'{s}_AP_sigma_noise_p2s.npy'))
+    
+    compare_denoise(s)
+    
+    sb.run(f'cp tmp/{s}/* denoise_test/{s}/', shell=True)
+    sb.run(f'cp -r denoise_test/{s} {store}/', shell=True) 
+    
+    sb.run(f'rm -rf tmp/{s}', shell=True)
+    sb.run(f'rm -rf denoise_test/{s}', shell=True)
+
+
+    
+
