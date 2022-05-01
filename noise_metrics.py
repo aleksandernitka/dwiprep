@@ -1,11 +1,4 @@
 
-import argparse
-
-parser = argparse.ArgumentParser(description = 'Given one or two nii or nii.gz images this function will calculate a number of metrics')
-
-parser.add_argument('rawimg', help='Raw, not denoised image')
-parser.add_argument('-c', '--compare', help='Run in compare mode. Will calcualte all single image metrics but also those based around image comparison.')
-
 from skimage.metrics import peak_signal_noise_ratio as psnr
 from skimage.metrics import structural_similarity as ssim
 from skimage.metrics import mean_squared_error as mse
