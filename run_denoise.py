@@ -70,6 +70,9 @@ def run_denoise(slist):
                 sb.run(f'cp -r tmp/{s} {OUTPDIR}{s}', shell = True)
                 sb.run(f'rm -rf tmp/{s}', shell = True)
                 
+                with open('denoise_done.log', 'a') as l:
+            	    l.write(f'{dt.now()} {s}\n')
+            	    l.close()
             else:
                 # error no T1s
                 with open(f'{s}_error.log', 'a') as e:
@@ -82,9 +85,7 @@ def run_denoise(slist):
                 e.write('error copying dwi files.')
                 e.close()
 
-        with open('denoise_done.log', 'a') as l:
-            l.write(f'{dt.now()} {s}\n')
-            l.close()
+        
             
                 
     if telegram:
