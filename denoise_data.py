@@ -11,6 +11,10 @@ from skimage.measure import euler_number as euler
 from skimage.measure import shannon_entropy as shannon
 from dipy.denoise.noise_estimate import estimate_sigma
 
+"""from matplotlib import pyplot as plt
+from dipy.core.histeq import histeq
+import cmocean"""
+
 def snr(a, axis=None, ddof=0):
     """
     The signal-to-noise ratio of the input data.
@@ -87,7 +91,7 @@ if exists(edir):
             base_snr.append(snr(ibase[:,:,:,v]))
             base_eul.append(euler(ibase[:,:,:,v]))
             base_sha.append(shannon(ibase[:,:,:,v]))
-           
+            
         np.save(join(edir, s, f'{s}_base_sigma.npy'), base_sig)
         np.save(join(edir, s, f'{s}_base_snr.npy'), base_snr)
         np.save(join(edir, s, f'{s}_base_euler.npy'), base_eul)
@@ -129,7 +133,7 @@ if exists(edir):
             
             # Save image - so we can plot the comparisons
             # TODO plot comparisons btw the images
-            globals()[f'{dnames[j]}_nii'] = img
+            # globals()[f'{dnames[j]}_nii'] = img
             
             del xsig, xsnr, xeuler, xshan, xpsnr, xssim, xmse, img
 
