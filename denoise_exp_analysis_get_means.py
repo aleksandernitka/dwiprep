@@ -1,9 +1,16 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+
+Created on Mon May  2 16:13:11 2022
+@author: aleksander nitka
+"""
+
 from os import listdir as ls
 import pandas as pd
 from os.path import join
-import matplotlib.pyplot as plt
 
-ddir = 'denoising_exp_results'
+ddir = 'denoise_exp_results'
 
 data_files = [f for f in ls(ddir) if f.startswith('sub-') and f.endswith('.csv')]
 
