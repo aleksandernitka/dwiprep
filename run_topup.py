@@ -45,6 +45,8 @@ else:
   
 subs = np.loadtxt(args.slist, delimiter = '\n', dtype=str)
 
+print(subs)
+
 RAWDATA = args.datain
 
 if telegram:
