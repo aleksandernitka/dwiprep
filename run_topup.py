@@ -5,34 +5,21 @@ import argparse
 from os.path import join, exists
 from os import mkdir
 import numpy as np
-from dwiprep import mk_b0s, mk_acq_params, run_topup, plt_topup, mv_post_topup, \
-    run_apply_topup
+from dwiprep import mk_b0s, mk_acq_params, plt_topup, mv_post_topup, run_apply_topup
 import subprocess as sb
 from datetime import datetime as dt
 import shutil
 
 args = argparse.ArgumentParser(description="Function to run steps after denoising up until and including topup adn apply topup.")
-args.add_argument('--slist', help = 'CSV file containing subject ids.', required = True)
-args.add_argument('--datain', help = 'Path where the denoised data is stored.', required = True)
+args.add_argument('-l', '--list', help = 'CSV file containing subject ids.', required = True)
+args.add_argument('-d', '--datain', help = 'Path where the denoised data is stored.', required = True)
+args.add_argument('-s', '--singularity', help = '[NOT IMPLEMENTED] Use singularity container.', action = 'store_true', default = False)
+args.add_argument('-c', '--container', help = '[NOT IMPLEMENTED] Container path (sif file).', required = False, default = None)
+args.add_argument('-i', '--inspect', help = '[NOT IMPLEMENTED] Print and save container inspection outputs (singularity inspect)', required = False, default = False, type = bool, action = 'store_true')
 args = args.parse_args()
 
 
 """
-This functions runs all things between denoising and topup with apply topup included
-
-Parameters
-----------
-slist : CSV file
-    File contianing all subject ids that are to be processed.
-    
-datain : Path
-    Path to dwi preprocessed data - data will be taken and saved there.
-
-Returns
--------
-Results of called functions.
-
-
 Created on Fri Apr 22 23:14:54 2022
 @author: aleksander nitka
 """
@@ -43,11 +30,9 @@ if exists('send_telegram.py'):
 else:
     telegram = False
   
-subs = np.loadtxt(args.slist, delimiter = '\n', dtype=str)
+subs = np.loadtxt(args.list, delimiter = '\n', dtype=str)
 
-print(subs)
-
-RAWDATA = args.datain
+datain = args.datain
 
 if telegram:
     sendtel(f'Denoising started: list {args.slist}')
@@ -57,15 +42,15 @@ for idx, s in enumerate(subs):
     print(f'{s} -- {idx} out of {len(subs)}')
 
     # Perform checks
-    if exists(join(RAWDATA, s)) == True:
+    if exists(join(datain, s)) == True:
         
         mkdir(join('tmp', s))
         
         # Copy all required files:
-        fcp = ['_AP.denoised.nii.gz', '_PA_denoised.nii.gz', '_AP.bval', \
-               '_PA.bval', '_AP.bvec', '_AP.json', '_PA.json']
+        fcp = ['_AP_denoised.nii.gz', '_PA_denoised.nii.gz', '_AP.bval', \
+               '_AP.bvec', '_AP.json', '_PA.json']
         for f in fcp:
-            shutil.copy(join(RAWDATA, s, f'{s}{f}'), join('tmp', s, f'{s}{f}'))
+            shutil.copy(join(datain, s, f'{s}{f}'), join('tmp', s, f'{s}{f}'))
         
         # Extract b0s for topup estimation
         mk_b0s(s)
@@ -82,7 +67,14 @@ for idx, s in enumerate(subs):
         
         # Run topup
         t = dt.now()
-        run_topup(s)
+        tp_cmd = f'topup --config=b02b0.cnf --datain=tmp/{s}/acqparams.txt \
+        --imain=tmp/{s}/{s}_AP-PA_b0s.nii.gz --out=tmp/{s}/{s}_AP-PA_topup \
+        --iout=tmp/{s}/{s}_iout --fout=tmp/{s}/{s}_fout -v \
+        --jacout=tmp/{s}/{s}_jac --logout=tmp/{s}/{s}_topup.log \
+        --rbmout=tmp/{s}/{s}_xfm --dfout=tmp/{s}/{s}_warpfield'
+    
+        sb.run(tp_cmd, shell=True)
+
         print(dt.now() - t)
         
         # Cleanup after topup
@@ -102,9 +94,9 @@ for idx, s in enumerate(subs):
         
     else:
         if telegram:
-            sendtel(f'{s} not found in {RAWDATA}')
+            sendtel(f'{s} not found in {datain}')
             
 if telegram:
-    sendtel(f'Denoising finished for {args.slist}')
+    sendtel(f'Denoising finished for {args.list}')
 
 

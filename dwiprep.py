@@ -58,6 +58,8 @@ def mk_run_lists_pretopup(rawdir, list_len):
 
 def run_topup(sid):
     """
+    DEPRECATED
+
     Using subprocess this fn runs the fsl topup. Noting more nothing less. 
 
     Parameters
@@ -75,8 +77,8 @@ def run_topup(sid):
     # note the config file copied from /usr/local/fsl/etc/flirtsch/b02b0.cnf
     
     tp_cmd = f'topup --config=b02b0.cnf --datain=tmp/{sid}/acqparams.txt \
-        --imain=tmp/{sid}/{sid}_AP-PA_b0s --out=tmp/{sid}/{sid}_AP-PA_topup \
-        --iout=tmp/{sid}/{sid}_iout --fout=tmp/{sid}/{sid}_fout \
+        --imain=tmp/{sid}/{sid}_AP-PA_b0s.nii.gz --out=tmp/{sid}/{sid}_AP-PA_topup \
+        --iout=tmp/{sid}/{sid}_iout --fout=tmp/{sid}/{sid}_fout -v \
         --jacout=tmp/{sid}/{sid}_jac --logout=tmp/{sid}/{sid}_topup.log \
         --rbmout=tmp/{sid}/{sid}_xfm --dfout=tmp/{sid}/{sid}_warpfield'
     
