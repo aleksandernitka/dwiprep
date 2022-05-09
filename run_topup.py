@@ -5,7 +5,7 @@ import argparse
 from os.path import join, exists
 from os import mkdir
 import numpy as np
-from dwiprep import mk_b0s, mk_acq_params, plt_topup, mv_post_topup, run_apply_topup
+from dwiprep import mk_b0s, mk_acq_params, plt_topup, mv_post_topup, run_apply_topup, mk_otsu_brain_mask, mk_b0s_topup_applied, mk_bet_brain_mask
 import subprocess as sb
 from datetime import datetime as dt
 import shutil
@@ -15,7 +15,7 @@ args.add_argument('-l', '--list', help = 'CSV file containing subject ids.', req
 args.add_argument('-d', '--datain', help = 'Path where the denoised data is stored.', required = True)
 args.add_argument('-s', '--singularity', help = '[NOT IMPLEMENTED] Use singularity container.', action = 'store_true', default = False)
 args.add_argument('-c', '--container', help = '[NOT IMPLEMENTED] Container path (sif file).', required = False, default = None)
-args.add_argument('-i', '--inspect', help = '[NOT IMPLEMENTED] Print and save container inspection outputs (singularity inspect)', required = False, default = False, type = bool, action = 'store_true')
+args.add_argument('-i', '--inspect', help = '[NOT IMPLEMENTED] Print and save container inspection outputs (singularity inspect)', required = False, default = False, action = 'store_true')
 args = args.parse_args()
 
 
@@ -35,7 +35,7 @@ subs = np.loadtxt(args.list, delimiter = '\n', dtype=str)
 datain = args.datain
 
 if telegram:
-    sendtel(f'Denoising started: list {args.slist}')
+    sendtel(f'Denoising started: list {args.list}')
 
 for idx, s in enumerate(subs):
     
@@ -88,6 +88,24 @@ for idx, s in enumerate(subs):
         # Make plots post topup
         plt_topup(s)
         
+        # Comapre outlines of brain mask before and after topup
+        # sb.run(f'bet tmp/{s}/{s}_AP_b0s_mean.nii.gz tmp/{s}/{s}_AP_b0s_mean_bet -m -o', shell = True)
+        # sb.run(f'bet tmp/{s}/{s}_PA_b0s_mean.nii.gz tmp/{s}/{s}_PA_b0s_mean_bet -m -o', shell = True)
+
+        # mk b0s topup applied
+        mk_b0s_topup_applied(s)
+
+        # Make mean b0
+        sb.run(f'fslmaths tmp/{s}/{s}_AP_b0s_topup-applied.nii.gz -Tmean tmp/{s}/{s}_AP_b0s_topup-applied_mean.nii.gz', shell = True)
+        # make brainmask bet
+        mk_otsu_brain_mask(s) 
+        # make brainmask bet
+        mk_bet_brain_mask(s)
+        
+
+
+        # Cleanup
+
         # move files to derivatives directory
         # sb.run(f'cp -r tmp/{s} {OUTPDIR}{s}', shell = True)
         # sb.run(f'rm -rf tmp/{s}', shell = True)
@@ -98,5 +116,3 @@ for idx, s in enumerate(subs):
             
 if telegram:
     sendtel(f'Denoising finished for {args.list}')
-
-
