@@ -5,7 +5,7 @@ import argparse
 from os.path import join, exists
 from os import mkdir
 import numpy as np
-from dwiprep import mk_b0s, mk_acq_params, plt_topup, mv_post_topup, run_apply_topup, mk_otsu_brain_mask, mk_b0s_topup_applied, mk_bet_brain_mask
+from dwiprep import mk_b0s, mk_acq_params, plt_topup, mk_otsu_brain_mask, mk_bet_brain_mask, comp_masks, mv_post_topup
 import subprocess as sb
 from datetime import datetime as dt
 import shutil
@@ -36,6 +36,11 @@ datain = args.datain
 
 if telegram:
     sendtel(f'Denoising started: list {args.list}')
+    
+# Add to log - mark list start
+with open('topup_done.log', 'a') as l:
+    l.write(f'{dt.now()}\tSTART\t{datain}\n')    
+    l.close()
 
 for idx, s in enumerate(subs):
     
@@ -75,44 +80,57 @@ for idx, s in enumerate(subs):
     
         sb.run(tp_cmd, shell=True)
 
-        print(dt.now() - t)
+        dtopup = dt.now() - t
+        print(f'Topup duration: {dtopup}')
+
+        with open('topup_times.log', 'a') as l:
+            l.write(f'{dt.now()}\t{s}\t{datain}\t{dtopup}\n')
+            l.close()
         
-        # Cleanup after topup
-        mv_post_topup(s)
+        # NB it is NO LONGER SUGGESTED TO  RUN APPLY TOPUP, Jesper is not longer recomending this step as the same can be achieved by running eddy with params feed into it https://www.jiscmail.ac.uk/cgi-bin/webadmin?A2=FSL;3206abfa.1608
         
-        # Apply topup
-        # NB it is NO LONGER SUGGESTED TO  RUN the below, Jesper is not longer recomending this step as the same can be achieved by running eddy with params feed into it https://www.jiscmail.ac.uk/cgi-bin/webadmin?A2=FSL;3206abfa.1608
-        # However I run this to get an undistorted b0 for brainmask
-        run_apply_topup(s)
+        # Make mean b0, this time from the topup corrected data
+        sb.run(f'fslmaths tmp/{s}/{s}_iout.nii.gz -Tmean tmp/{s}/{s}_iout_mean.nii.gz', shell = True)
         
-        # Make plots post topup
+        # plot topup correction
+        print(f'{dt.now()} {s} plotting topup results')
         plt_topup(s)
-        
-        # Comapre outlines of brain mask before and after topup
-        # sb.run(f'bet tmp/{s}/{s}_AP_b0s_mean.nii.gz tmp/{s}/{s}_AP_b0s_mean_bet -m -o', shell = True)
-        # sb.run(f'bet tmp/{s}/{s}_PA_b0s_mean.nii.gz tmp/{s}/{s}_PA_b0s_mean_bet -m -o', shell = True)
 
-        # mk b0s topup applied
-        mk_b0s_topup_applied(s)
-
-        # Make mean b0
-        sb.run(f'fslmaths tmp/{s}/{s}_AP_b0s_topup-applied.nii.gz -Tmean tmp/{s}/{s}_AP_b0s_topup-applied_mean.nii.gz', shell = True)
         # make brainmask bet
-        mk_otsu_brain_mask(s) 
+        # mk_otsu_brain_mask(s) 
         # make brainmask bet
-        mk_bet_brain_mask(s)
+        # mk_bet_brain_mask(s)
         
-
+        # Compare masks
+        # comp_masks(s)
 
         # Cleanup
+        print(f'{dt.now()} {s} cleaning up')
+        mv_post_topup(s)
 
-        # move files to derivatives directory
-        # sb.run(f'cp -r tmp/{s} {OUTPDIR}{s}', shell = True)
-        # sb.run(f'rm -rf tmp/{s}', shell = True)
+        # Move stuff to storage
+        print(f'{dt.now()} {s} moving to storage')
+        sb.run(f'cp -nr tmp/{s}/* {s}', shell = True )
+        
+        # add to log - completed
+        with open('topup_done.log', 'a') as l:
+            l.write(f'{dt.now()}\t{s}\t{datain}\n')
+            l.close()
+        
+        # Clean tmp dir
+        print(f'{dt.now()} {s} cleaning tmp dir')
+        sb.run(f'rm -rf tmp/{s}', shell = True)
+        
         
     else:
         if telegram:
             sendtel(f'{s} not found in {datain}')
+            with open('topup_errors.log', 'a') as e:
+                e.write(f'{dt.now()}\t{s}\t{datain}\n')
+                e.close()
             
 if telegram:
     sendtel(f'Denoising finished for {args.list}')
+    with open('topup_done.log', 'a') as l:
+        l.write(f'{dt.now()}\tEND\t{datain}\n')
+        l.close()

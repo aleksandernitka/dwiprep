@@ -103,7 +103,7 @@ def mk_bet_brain_mask(sid):
 
     from subprocess import run
     
-    img = f'tmp/{sid}/{sid}/_AP_b0s_topup-applied_mean'
+    img = f'tmp/{sid}/{sid}_iout_mean'
     
     # run center of mass estimation for bet2_2
     # Find center of mass of the image.
@@ -112,8 +112,8 @@ def mk_bet_brain_mask(sid):
     com_result = run(com, capture_output=True, shell=True)
     
     # run bet and bet2 in bash
-    cmd_bet2_1 = f'bet2 tmp/{sid}/{sid}_AP_b0s_topup-applied_mean tmp/{sid}/{sid}_AP_b0s_topup-applied_bet2 -m -o'
-    cmd_bet2_2 = f'bet2 tmp/{sid}/{sid}_AP_b0s_topup-applied_mean tmp/{sid}/{sid}_AP_b0s_topup-applied_bet2c -m -o -c {com_result.stdout.decode}'
+    cmd_bet2_1 = f'bet2 tmp/{sid}/{sid}_iout_mean tmp/{sid}/{sid}_iout_bet2 -m -o'
+    cmd_bet2_2 = f'bet2 tmp/{sid}/{sid}_iout_mean tmp/{sid}/{sid}_iout_bet2c -m -o -c {com_result.stdout.decode}'
     run(cmd_bet2_1, shell=True)
     run(cmd_bet2_2, shell=True)
     
@@ -140,14 +140,14 @@ def mk_otsu_brain_mask(sid):
 
     import numpy as np
     
-    b0, b0_affine = load_nifti(os.path.join('tmp', sid, f'{sid}_AP_b0s_topup-applied_mean.nii.gz'))
+    b0, b0_affine = load_nifti(os.path.join('tmp', sid, f'{sid}_iout_mean.nii.gz'))
     
     # Make mask with median_otsu method, default params
     b0_mask, mask = median_otsu(b0)
     
     # save to nifti
-    save_nifti(os.path.join('tmp', sid, f'{sid}_AP_b0s_topup-applied_otsu.nii.gz'), b0_mask, b0_affine)
-    save_nifti(os.path.join('tmp', sid, f'{sid}_AP_b0s_topup-applied_otsu_mask.nii.gz'), mask.astype(np.float32), b0_affine)
+    save_nifti(os.path.join('tmp', sid, f'{sid}_iout_otsu.nii.gz'), b0_mask, b0_affine)
+    save_nifti(os.path.join('tmp', sid, f'{sid}_iout_otsu_mask.nii.gz'), mask.astype(np.float32), b0_affine)
     
 def comp_masks(sid):
     
@@ -162,10 +162,10 @@ def comp_masks(sid):
     from os.path import join
     from matplotlib.patches import Rectangle
     
-    p_b2 = join('tmp', sid, f'{sid}_AP_b0s_topup-applied_bet2_mask.nii.gz')
-    p_b2c = join('tmp', sid, f'{sid}_AP_b0s_topup-applied_bet2c_mask.nii.gz')
-    p_otsu = join('tmp', sid, f'{sid}_AP_b0s_topup-applied_otsu_mask.nii.gz')
-    p_img = join('tmp', sid, f'{sid}_AP_b0s_topup-applied_mean.nii.gz')
+    p_b2 = join('tmp', sid, f'{sid}_iout_bet2_mask.nii.gz')
+    p_b2c = join('tmp', sid, f'{sid}_iout_bet2c_mask.nii.gz')
+    p_otsu = join('tmp', sid, f'{sid}_iout_otsu_mask.nii.gz')
+    p_img = join('tmp', sid, f'{sid}_iout_mean.nii.gz')
     
     a = .3 # alpha
     l = 2 # line
@@ -213,97 +213,7 @@ def mk_index_eddy(sid):
             i.write('1 ')
     i.close()
     
-    """
-    Simple toy function which plots series of edges with various sigma. May be 
-    useful for some superimposed plotting of two images
-
-    Parameters
-    ----------
-    sid : str 
-        Subject is with sub prefix.
-
-    Returns
-    -------
-    None.
-
-    """
-    
-    # TODO Try with PIL filters
-    """
-    from PIL import Image
-    with Image.open(filename) as img:
-        img.load()
-    >>> img_gray = img.convert("L")
-    >>> edges = img_gray.filter(ImageFilter.FIND_EDGES)
-    >>> edges.show()
-    """
-    
-    import matplotlib.pyplot as plt
-    from skimage.feature import canny
-    from dipy.io.image import load_nifti
-    import os
-    from dipy.core.histeq import histeq
-    import cmocean
-
-    i, affine = load_nifti(os.path.join('tmp', sid, f'{sid}_AP_b0s_topup-applied_otsu.nii.gz'))
-
-    plt.imshow(histeq(i[:,:,42].T), cmap = cmocean.cm.tarn, interpolation = 'none', origin = 'lower', )
-
-    fig1, ax = plt.subplots(2, 3, figsize=(16, 12), subplot_kw={'xticks': [], 'yticks': []})
-    fig1.subplots_adjust(hspace=0.05, wspace=0.05)
-
-    sigmas = [1, 2, 3, 4, 5, 6]
-
-    for n, s in enumerate(sigmas):
-        
-        edg = canny(histeq(i[:,:,42]), sigma = s)
-        ax.flat[n].imshow(edg.T, interpolation = 'none', origin = 'lower', cmap='gray')
-
-def mk_b0s_topup_applied(sid):
-    """
-    Extracts b0s from topup-applied DWI.
-
-    Parameters
-    ----------
-    sid : str
-        Subject id with 'sub' prefix.
-
-    Returns
-    -------
-    - _AP_b0s_topup-applied.nii.gz
-    - _AP_topup-applied_b0s.png (control plot)
-
-    Created on Tue Apr 19 10:27:49 2022
-    @author: aleksander nitka
-    """
-
-    from dipy.io.image import load_nifti, save_nifti
-    from dipy.core.gradients import gradient_table
-    import matplotlib.pyplot as plt
-    import os
-    from dipy.core.histeq import histeq
-    import cmocean
-    
-    gtab = gradient_table(f'tmp/{sid}/{sid}_AP.bval', f'tmp/{sid}/{sid}_AP.bvec')
-    
-    dwi, affine = load_nifti(os.path.join('tmp', sid, f'{sid}_AP_topup-applied.nii.gz'))
-    
-    b0s = dwi[:,:,:,gtab.b0s_mask]
-
-    save_nifti(f'tmp/{sid}/{sid}_AP_b0s_topup-applied.nii.gz', b0s, affine)   
-    
-    # Control figure PA
-    fig1, ax = plt.subplots(2, 5, figsize=(12, 6),subplot_kw={'xticks': [], 'yticks': []})
-    fig1.subplots_adjust(hspace=0.05, wspace=0.15)
-    fig1.suptitle(f'{sid} DWI (post topup) b0s', fontsize = 20)
-    
-    for i in range(0, b0s.shape[3]):
-        
-        ax.flat[i].imshow(histeq(b0s[:,:,42,i].T), cmap=cmocean.cm.tarn, interpolation='none',origin='lower')
-        ax.flat[i].set_title(f'{i}')
-        
-    fig1.savefig(os.path.join('tmp', sid, f'{sid}_AP_topup-applied_b0s.png'))
-    
+   
 def mk_b0s(sid):
     """
     Extracts all b0s from the AP.nii and saves it as AP_b0s.nii.gz
@@ -780,12 +690,15 @@ def plt_topup_outlines(s):
     import matplotlib.pyplot as plt
     from matplotlib.patches import Rectangle
 
+    # First extract first volume from each image, in second run take the mean image
     pth = f'tmp/{s}/{s}'
-    b0s_x = ['_AP_b0s', '_PA_b0s', '_AP_b0s_topup-applied']
-    b0s_y = ['_TPQA_AP_b01', '_TPQA_PA_b01', '_TPQA_TP_b01']
-
-    for j, x in enumerate(b0s_x):
+    b0s_x = ['_AP_b0s', '_PA_b0s', '_iout']
         
+    b0s_y = ['_TPQA_AP_b01', '_TPQA_PA_b01', '_TPQA_TP_b01', \
+             '_AP_b0s_mean', '_PA_b0s_mean', '_iout_mean']
+        
+    for j, x in enumerate(b0s_x):
+        # extract first volume of b0s
         cmd = f'fslroi {pth}{x} {pth}{b0s_y[j]} 0 1'
         run(cmd, shell=True)
 
@@ -806,43 +719,51 @@ def plt_topup_outlines(s):
         
         # remove
         rm(f'{img}_b.nii.gz')
-
-    itp = f'{pth}_TPQA_TP_b01.nii.gz'
-    oap = f'{pth}_TPQA_AP_b01_b_mask.nii.gz'
-    opa = f'{pth}_TPQA_PA_b01_b_mask.nii.gz'
-    otp = f'{pth}_TPQA_TP_b01_b_mask.nii.gz'
-    
+        
+    files = [[f'{pth}_TPQA_TP_b01.nii.gz',\
+              f'{pth}_TPQA_AP_b01_b_mask.nii.gz',\
+              f'{pth}_TPQA_PA_b01_b_mask.nii.gz',\
+              f'{pth}_TPQA_TP_b01_b_mask.nii.gz'], \
+             [f'{pth}_TPQA_TP_b01.nii.gz',\
+              f'{pth}_AP_b0s_mean_b_mask.nii.gz',\
+              f'{pth}_PA_b0s_mean_b_mask.nii.gz',\
+              f'{pth}_iout_mean_b_mask.nii.gz']]
+        
     # Set alpha value for the images.
     a = 0.5
     # Set line width.
     l = 4
     
-    fig = plt.figure(figsize=(12, 5))
-    # plot with nilearn
-    display = plotting.plot_anat(itp, cut_coords = (0, 0, 50), display_mode='ortho', cmap='gray', draw_cross = 0, figure = fig, title = f'{s}')
-    display.add_contours(oap, alpha = a, antialiased=1, linewidths=l, colors=['red'], filled = 0)
-    display.add_contours(opa, alpha = a, antialiased=1, linewidths=l, colors=['blue'], filled = 0)
-    display.add_contours(otp, alpha = a, antialiased=1, linewidths=l, colors=['green'], filled = 0)
-    display.annotate(scalebar=True)
+    names = [['1st b0', 'B01'], ['mean b0', 'B0M']]
+    
+    for x, fs in enumerate(files):
+
+        fig = plt.figure(figsize=(12, 5))
+        # plot with nilearn
+        display = plotting.plot_anat(fs[0], cut_coords = (0, 0, 50), display_mode='ortho', cmap='gray', draw_cross = 0, figure = fig, title = f'{s} {names[x][0]}')
+        display.add_contours(fs[1], alpha = a, antialiased=1, linewidths=l, colors=['red'], filled = 0)
+        display.add_contours(fs[2], alpha = a, antialiased=1, linewidths=l, colors=['blue'], filled = 0)
+        display.add_contours(fs[3], alpha = a, antialiased=1, linewidths=l, colors=['green'], filled = 0)
+        display.annotate(scalebar=True)
 
     
-    p_ap = Rectangle((0, 0), 1, 1, fc="red")
-    p_pa = Rectangle((0, 0), 1, 1, fc="blue")
-    p_tp = Rectangle((0, 0), 1, 1, fc="green")
-    plt.legend([p_ap, p_pa, p_tp], ["AP", "PA", "TP"])
+        p_ap = Rectangle((0, 0), 1, 1, fc="red")
+        p_pa = Rectangle((0, 0), 1, 1, fc="blue")
+        p_tp = Rectangle((0, 0), 1, 1, fc="green")
+        plt.legend([p_ap, p_pa, p_tp], ["AP", "PA", "TP"])
 
-    display.savefig(f'{pth}_TPQA.png')
-    display.close()
+        display.savefig(f'{pth}_TP{names[x][1]}QA.png')
+        display.close()
     
-    # Make another plot but with more slices
-    fig = plt.figure(figsize=(12, ))
-
-    display = plotting.plot_anat(itp, display_mode='mosaic', cmap='gray', draw_cross = 0, figure = fig, title = f'{s}')
-    display.add_contours(oap, alpha = a, antialiased=1, linewidths=l, colors=['red'], filled = 0)
-    display.add_contours(opa, alpha = a, antialiased=1, linewidths=l, colors=['blue'], filled = 0)
-    display.add_contours(otp, alpha = a, antialiased=1, linewidths=l, colors=['green'], filled = 0)
-    display.savefig(f'{pth}_TPMOSAICQA.png')
-    display.close()
+        # Make another plot but with more slices
+        fig = plt.figure(figsize=(20, 12))
+    
+        display = plotting.plot_anat(fs[0], display_mode='mosaic', cmap='gray', draw_cross = 0, figure = fig, title = f'{s}')
+        display.add_contours(fs[1], alpha = a, antialiased=1, linewidths=l, colors=['red'], filled = 0)
+        display.add_contours(fs[2], alpha = a, antialiased=1, linewidths=l, colors=['blue'], filled = 0)
+        display.add_contours(fs[3], alpha = a, antialiased=1, linewidths=l, colors=['green'], filled = 0)
+        display.savefig(f'{pth}_TP{names[x][1]}MOSAICQA.png')
+        display.close()
 
     rm(f'{pth}_TPQA_AP_b01.nii.gz')
     rm(f'{pth}_TPQA_PA_b01.nii.gz')
@@ -867,7 +788,7 @@ def plt_topup(sid):
     
     pth = join('tmp', sid, sid)
     
-    # plot mean AP and PA b0s
+    # plot mean AP, PA b0s and iout mean image
     iap = pth + '_AP_b0s_mean.nii.gz'
     fap = plt.figure(figsize=(12, 5))
     dap = plotting.plot_anat(iap, cut_coords = (0, 0, 50), display_mode='ortho', cmap='gray', draw_cross = 0, figure = fap, title = f'{sid} mean AP b0')
@@ -875,12 +796,19 @@ def plt_topup(sid):
     dap.savefig(pth + '_APMB0QA.png')
     dap.close()
     
-    ipa = pth, + '_PA_b0s_mean.nii.gz'
+    ipa = pth + '_PA_b0s_mean.nii.gz'
     fpa = plt.figure(figsize=(12, 5))
     dpa = plotting.plot_anat(ipa, cut_coords = (0, 0, 50), display_mode='ortho', cmap='gray', draw_cross = 0, figure = fpa, title = f'{sid} mean PA b0')
     dpa.annotate(scalebar=True)
     dpa.savefig(pth + '_PAMB0QA.png')
     dpa.close()
+    
+    ptp = pth + '_iout_mean.nii.gz'
+    ftp = plt.figure(figsize=(12, 5))
+    dpt = plotting.plot_anat(ptp, cut_coords = (0, 0, 50), display_mode='ortho', cmap='gray', draw_cross = 0, figure = ftp, title = f'{sid} mean IOUT b0')
+    dpt.annotate(scalebar=True)
+    dpt.savefig(pth + '_IOUTMQA.png')
+    dpt.close()
     
     # plot field coef
     fcoef = pth + '_AP-PA_topup_fieldcoef.nii.gz'
@@ -896,7 +824,7 @@ def plt_topup(sid):
     dou.savefig(pth+'_FOUTQA.png')
     dou.close()
 
-    # will notbe plotting the iout volumes as these are going to be corrected with EDDY anyhow.
+    # will notbe plotting the iout volumes as these are going to be corrected with EDDY anyhow. I am plotting mean image thoug
     '''    
     # plot iout
     iout = pth + '_iout.nii.gz'
@@ -911,7 +839,6 @@ def plt_topup(sid):
     
 def mv_post_topup(sid):
     """
-    DEPRECIATED
     Topup creates sequences of control images (jac, warpfield) and matrices (xfm)
     this fn moves those files into separate folders
 
@@ -950,9 +877,9 @@ def mv_post_topup(sid):
         
 def run_apply_topup(sid):
     """
+    DEPRECIATED
+
     Runs applytopup, not required as Eddy handels the distortion correction,
-    but to run Eddy we need a brain mask so we need an undistorted image to get 
-    one (?). It takes only a while anyway.
 
     Parameters
     ----------
@@ -972,3 +899,51 @@ def run_apply_topup(sid):
         -o tmp/{sid}/{sid}_AP_topup-applied -v -m jac'
         
     sb.run(cmd, shell=True)
+
+def mk_b0s_topup_applied(sid):
+    """
+    DEPRECATED
+
+    Extracts b0s from topup-applied DWI.
+
+    Parameters
+    ----------
+    sid : str
+        Subject id with 'sub' prefix.
+
+    Returns
+    -------
+    - _AP_b0s_topup-applied.nii.gz
+    - _AP_topup-applied_b0s.png (control plot)
+
+    Created on Tue Apr 19 10:27:49 2022
+    @author: aleksander nitka
+    """
+
+    from dipy.io.image import load_nifti, save_nifti
+    from dipy.core.gradients import gradient_table
+    import matplotlib.pyplot as plt
+    import os
+    from dipy.core.histeq import histeq
+    import cmocean
+    
+    gtab = gradient_table(f'tmp/{sid}/{sid}_AP.bval', f'tmp/{sid}/{sid}_AP.bvec')
+    
+    dwi, affine = load_nifti(os.path.join('tmp', sid, f'{sid}_AP_topup-applied.nii.gz'))
+    
+    b0s = dwi[:,:,:,gtab.b0s_mask]
+
+    save_nifti(f'tmp/{sid}/{sid}_AP_b0s_topup-applied.nii.gz', b0s, affine)   
+    
+    # Control figure PA
+    fig1, ax = plt.subplots(2, 5, figsize=(12, 6),subplot_kw={'xticks': [], 'yticks': []})
+    fig1.subplots_adjust(hspace=0.05, wspace=0.15)
+    fig1.suptitle(f'{sid} DWI (post topup) b0s', fontsize = 20)
+    
+    for i in range(0, b0s.shape[3]):
+        
+        ax.flat[i].imshow(histeq(b0s[:,:,42,i].T), cmap=cmocean.cm.tarn, interpolation='none',origin='lower')
+        ax.flat[i].set_title(f'{i}')
+        
+    fig1.savefig(os.path.join('tmp', sid, f'{sid}_AP_topup-applied_b0s.png'))
+ 

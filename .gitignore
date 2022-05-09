@@ -19,3 +19,5 @@ denoise_done.log
 .idea/
 denoise_test/
 
+
+dwi_preproc_missing.txt
