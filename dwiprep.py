@@ -754,7 +754,9 @@ def plt_topup_outlines(s):
 
         display.savefig(f'{pth}_TP{names[x][1]}QA.png')
         display.close()
-    
+
+        plt.close(fig)
+        
         # Make another plot but with more slices
         fig = plt.figure(figsize=(20, 12))
     
@@ -795,13 +797,15 @@ def plt_topup(sid):
     dap.annotate(scalebar=True)
     dap.savefig(pth + '_APMB0QA.png')
     dap.close()
-    
+    plt.close(fap)
+
     ipa = pth + '_PA_b0s_mean.nii.gz'
     fpa = plt.figure(figsize=(12, 5))
     dpa = plotting.plot_anat(ipa, cut_coords = (0, 0, 50), display_mode='ortho', cmap='gray', draw_cross = 0, figure = fpa, title = f'{sid} mean PA b0')
     dpa.annotate(scalebar=True)
     dpa.savefig(pth + '_PAMB0QA.png')
     dpa.close()
+    plt.close(fpa)
     
     ptp = pth + '_iout_mean.nii.gz'
     ftp = plt.figure(figsize=(12, 5))
@@ -809,6 +813,7 @@ def plt_topup(sid):
     dpt.annotate(scalebar=True)
     dpt.savefig(pth + '_IOUTMQA.png')
     dpt.close()
+    plt.close(ftp)
     
     # plot field coef
     fcoef = pth + '_AP-PA_topup_fieldcoef.nii.gz'
@@ -816,6 +821,7 @@ def plt_topup(sid):
     dfo = plotting.plot_epi(fcoef,  display_mode='mosaic', cmap='gray', draw_cross = 1, figure = fco, title = f'{sid} fieldcoef')
     dfo.savefig(pth + '_FCOEFQA.png')
     dfo.close()
+    plt.close(fco)
 
     # fout
     fout = pth + '_fout.nii.gz'
@@ -823,6 +829,7 @@ def plt_topup(sid):
     dou = plotting.plot_epi(fout,  display_mode='mosaic', cmap='gray', draw_cross = 1, figure = fou, title = f'{sid} fout')
     dou.savefig(pth+'_FOUTQA.png')
     dou.close()
+    plt.close(fou)
 
     # will notbe plotting the iout volumes as these are going to be corrected with EDDY anyhow. I am plotting mean image thoug
     '''    
