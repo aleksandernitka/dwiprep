@@ -634,7 +634,7 @@ def mk_gradients(sid):
     # save b0s mask as numpy array  - which volumes are b0 in AP (bool)
     np.save(f'tmp/{sid}/{sid}_b0mask.npy', gtab.b0s_mask)
      
-def cp_dwi_files(sid, hmri, rawdata, where):
+def cp_dwi_files(sid, rawdata, where):
     
     """
     Copy all files needed for preprocessing in dwi, make sure all dirs exist
@@ -667,12 +667,6 @@ def cp_dwi_files(sid, hmri, rawdata, where):
         
         shutil.copy(os.path.join(rawdata, sid, 'dwi', f), os.path.join(where, fn))
 
-    # cp t1 to tmp
-    try:
-        shutil.copy(os.path.join(hmri, sid, 'Results', f'{sid}_synthetic_T1w.nii'), os.path.join(where, f'{sid}_T1w.nii'))
-    except:
-        print(f'{sid} error copying t1w')
-        return None
 
 def plt_topup_outlines(s):
     """
