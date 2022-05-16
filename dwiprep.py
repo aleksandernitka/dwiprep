@@ -339,13 +339,20 @@ def rm_noise_p2s(sid):
     from shutil import rmtree as rmt
     from dipy.denoise.patch2self import patch2self
     from datetime import datetime as dt
-    from dipy.core.histeq import histeq
     from dipy.denoise.noise_estimate import estimate_sigma
     
     xcmp = 'gray'
     
     # Number of coils used in scan
     nC = 32
+
+    # check if all required files are present in tmp:
+    req_files = ['_AP.nii', '_PA.nii', '_AP.bval', '_AP.bvec']
+    for f in req_files:
+        fx = f'{sid}' + f
+        if not os.path.exists(os.path.join('tmp', sid, fx)):
+            print(f'{sid} file {fx} could not be found, cannot denoise...')
+            return None
     
     # Load dwi
     dwi_ap, dwi_ap_affine = load_nifti(os.path.join('tmp', sid, f'{sid}_AP.nii'))

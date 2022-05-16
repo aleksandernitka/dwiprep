@@ -21,6 +21,7 @@ import argparse
 from os.path import exists
 import numpy as np
 from datetime import datetime as dt
+from sys import exit
 
 args = argparse.ArgumentParser(description="Function to run denoising of the dwi data - implementation uses the patch2self from dipy 1.5.0.")
 args.add_argument('-f', '--file', help='Provide a list of subjects in a csv format with one subject per line.', default=None)
@@ -29,12 +30,20 @@ args.add_argument('-t', '--telegram', help='Enables notifications with telegram,
 args.add_argument('-r', '--rawdir', help='Specify the input dir; it is usually the rawdata dir with all the sub dirs inside which I will find dwi dir with all the dwi files.', required=True)
 args.add_argument('-o', '--out', help='Specify outdir, where the denoised data will be saved, a sub dir will be created there.', required=True)
 args.add_argument('-l', '--log', help='Save a simple log of what has been processed.', default=False, action='store_true')
-args.add_argument('-c', '--cp', help='Copy data from rawdir, if set as False the data will not be copied - all data required is in tmp already', required=False, default=True, action='store_false')
+args.add_argument('--nocopy', help='Do not copy data from rawdir, if set, the data will not be copied - all data required is in tmp already', default=False, action='store_true')
 args.add_argument('--noclean', help='Do not clean the tmp folder after denoising has been completed', default=False, action='store_true')
-args.add_argument('--nomove', help='Do not clean the tmp folder and do not move to out dir after denoising', default=False, action='strore_true')
+args.add_argument('--nomove', help='Do not clean the tmp folder and do not move to out dir after denoising', default=False, action='store_true')
 args = args.parse_args()
 
-def denoise_me(s, copy_dwi = args.cp, log = args.log, rawdir = args.rawdir, outdir = args.out, no_clean = args.noclean, no_move = args.nomove):
+# Check and set telegram informations
+if args.telegram is True and exists('send_telegram.py'):
+    from send_telegram import sendtel
+    telegram = True
+else:
+    telegram = False
+
+# Define main function for single subject process
+def denoise_me(s, log = args.log, rawdir = args.rawdir, outdir = args.out, no_clean = args.noclean, no_move = args.nomove, no_copy = args.nocopy):
     """
     Perform copying (if needed), gradients estimation and denoising with p2s
     Set for a single ss but when list given just embed this fn in a loop.
@@ -45,7 +54,7 @@ def denoise_me(s, copy_dwi = args.cp, log = args.log, rawdir = args.rawdir, outd
     from os.path import join, exists
     from datetime import datetime as dt
 
-    if copy_dwi is True and exists(join(rawdir, s, 'dwi')) is True:
+    if no_copy is False and exists(join(rawdir, s, 'dwi')) is True:
         try:
             mkdir(join('tmp', s))
             # Copy all required files
@@ -59,11 +68,26 @@ def denoise_me(s, copy_dwi = args.cp, log = args.log, rawdir = args.rawdir, outd
             return None
     else:
         try:
-        # Make gradients
-        mk_gradients(s)
+            # Make gradients
+            mk_gradients(s)
+        except:
+            print(f'{dt.now()} {s} error while creating gradients.')
+            if log:
+                with open('denoise_errors.log', 'a') as e:
+                    e.write(f'{dt.now()}\t{s}\terror while creating gradients\n')
+                    e.close()
+            return None
 
-    # Denoise p2s
-    rm_noise_p2s(s)
+        try:
+            # Denoise p2s
+            rm_noise_p2s(s)
+        except:
+            print(f'{dt.now()} {s} error while denoising files.')
+            if log:
+                with open('denoise_errors.log', 'a') as e:
+                    e.write(f'{dt.now()}\t{s}\terror while denoising dwi files\n')
+                    e.close()
+            return None
 
     # Sort and move files to derivatives directory
     # move files to derivatives directory
@@ -84,53 +108,66 @@ def denoise_me(s, copy_dwi = args.cp, log = args.log, rawdir = args.rawdir, outd
 
     return None
 
+if args.file is None and args.sub is None:
+    print('Error - please provide file list with ids (-f) or a single subject id (-s) to denoise')
+    exit(1)
 
-if args.file is args.sub is None:
-    # raise error KILL
-    # TODO
-    pass
 elif args.file is not None and args.sub is not None:
-    # raise error KILL
-    # TODO
-    pass
-elif args.file is not None:
-    # run from list
-    # TODO
+    print('Error - please provide a file with a list of ids OR a single subject id to denoise. You have provided both.')
+    exit(1)
+
+elif args.file is not None and args.sub is None:
+
+    #####################
+    ### run from list ###
+    #####################
+
     # Load the subject list
     subs = np.loadtxt(args.file, delimiter='\n', dtype=str)
-    run_with = args.file
-    pass
-elif args.sub is not None:
-    # run singe subject
-    # TODO
+
+    # Send info
+    if telegram:
+        sendtel(f'Denoising started for {args.file}')
+
+    print(f'Denoising started for {args.file}')
+
+    for idx, s in enumerate(subs):
+        print(f'{s} -- {idx} out of {len(subs)}')
+
+        denoise_me(s)
+
+    # notify when done
+    if telegram:
+        sendtel(f'Denoising finished for {args.file}')
+
+    print(f'{dt.now()} Denoising finished for {args.file}')
+
+elif args.sub is not None and args.file is None:
+
+    ######################
+    ### run single sub ###
+    ######################
+
     # add sub- prefix if missing
     if 'sub' not in args.sub:
         args.sub = 'sub-' + str(args.sub)
-    run_with = args.sub
-    pass
 
-if args.telegram is True and exists('send_telegram.py'):
-    from send_telegram import sendtel
-    telegram = True
-    sendtel(f'Denoising started for {run_with}')
+    # Send info
+    if telegram:
+        sendtel(f'Denoising started for {args.sub}')
+
+    print(f'Denoising started for {args.sub}')
+
+    denoise_me(args.sub)
+
+    # notify when done
+    if telegram:
+        sendtel(f'Denoising finished for {args.sub}')
+
+    print(f'{dt.now()} Denoising finished for {args.sub}')
+
 else:
-    telegram = False
-
-print(f'Denoising started for {run_with}')
-
-
-
-for idx, s in enumerate(subs):
-
-    print(f'{s} -- {idx} out of {len(subs)}')
-
-    # Perform checks
-
-
-
-if telegram:
-    sendtel(f'Denoising finished for {run_with}')
-print(f'{dt.now()} Denoising finished for {run_with}')
-
+    print('UNKNOWN ERROR O_o.')
+    exit(1)
 
 
