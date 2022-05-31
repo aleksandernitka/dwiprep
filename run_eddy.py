@@ -66,7 +66,7 @@ for idx, s in enumerate(subs):
     try:
         pass
         # copy all required files
-        
+        # cp the following: acqparams.txt, AP.nii, AP.json, AP.bvals, AP.bvec, topup generated files
     except:
         
         pass
