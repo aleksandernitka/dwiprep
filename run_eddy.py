@@ -14,7 +14,6 @@ from datetime import timedelta as td
 import numpy as np
 import subprocess as sp
 import shutil
-from dwiprep import mk_otsu_brain_mask, mk_bet_brainmask, comp_masks
 
 # TODO add mutually exclusive (?) to run a single subject rather than a list
 
@@ -64,11 +63,20 @@ for idx, s in enumerate(subs):
     
     ## -- COPY REQ FILES -- ##
     try:
-        pass
+        mkdir(join('tmp', s))
+        
+        # Copy all required files:
+        # TODO Topup files
+        fcp = ['_AP_denoised.nii.gz', '_PA_denoised.nii.gz', '_AP.bval', \
+                '_AP.bvec', '_AP.json', '_PA.json', '_AP_b0s.nii.gz', 'acqparams.txt', \
+                ]
+        for f in fcp:
+            shutil.copy(join(args.datain, s, f'{s}{f}'), join('tmp', s, f'{s}{f}'))
+        
         # copy all required files
         # cp the following: 
         # TODO
-        files = ['acqparams.txt', 'AP.nii', 'AP.json', 'AP.bvals', 'AP.bvec', 'topup generated files]
+        files = ['acqparams.txt', 'AP_denoised.nii', 'AP_denoised.json', 'AP.bvals', 'AP.bvec', 'topup generated files', 'AP_b0s']
     except:
         
         if telegram:
@@ -80,19 +88,11 @@ for idx, s in enumerate(subs):
     
     ## -- MAKE BRAINMASK -- ##
     try:
-        # TODO extract 0 vol of AP_b0s.nii
+        sp.run(f'fslroi {s}_AP_b0s.nii.gz {s}_AP_b0s_1.nii.gz 0 1')
+        # make brain mask with SynthStrip container
+        sp.run(f'python mri_synthstrip -i tmp/{s}/{s}_AP_b0s_1.nii.gz -o tmp/{s}/{s}_AP_b0s_1_brain_syns.nii.gz -m tmp/{s}/{s}_brainmask_syns.nii.gz ', shell=True)
 
-        # TODO below functions must be redone so they use containers
-        # make brainmask bet
-        mk_otsu_brain_mask(s) 
-        # make brainmask bet
-        mk_bet_brain_mask(s)
-        # make brain mask with SynthStrip
-        sp.run(f'mri_synthstrip -i {} -o {}', shell=True)
-        
-        # Compare masks
-        # TODO compare all three masks
-        comp_masks(s)
+        # TODO plot mask for control
         
     except:
         if telegram:
