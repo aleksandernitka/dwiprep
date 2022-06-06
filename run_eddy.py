@@ -51,7 +51,7 @@ subs = np.loadtxt(args.list, delimiter = '\n', dtype=str)
 ln = args.list.split('/')[-1].split('.')[0]
 
 if telegram:
-    sendtel(f'Denoising started: list {args.list}')
+    sendtel(f'Eddy started: list {args.list}')
     
 # Add to log - mark list start
 with open('eddy_done.log', 'a') as l:
@@ -66,26 +66,42 @@ for idx, s in enumerate(subs):
     try:
         pass
         # copy all required files
-        # cp the following: acqparams.txt, AP.nii, AP.json, AP.bvals, AP.bvec, topup generated files
+        # cp the following: 
+        # TODO
+        files = ['acqparams.txt', 'AP.nii', 'AP.json', 'AP.bvals', 'AP.bvec', 'topup generated files]
     except:
         
-        pass
+        if telegram:
+            sendtel(f'{s}: Unable to copy files for processing.')
+        with open('eddy_errors.log', 'a') as l:
+            l.write(f'{dt.now()}\t{s}\tCannot copy files\n')    
+            l.close()
+        break
     
     ## -- MAKE BRAINMASK -- ##
     try:
+        # TODO extract 0 vol of AP_b0s.nii
+
         # TODO below functions must be redone so they use containers
         # make brainmask bet
         mk_otsu_brain_mask(s) 
         # make brainmask bet
         mk_bet_brain_mask(s)
+        # make brain mask with SynthStrip
+        sp.run(f'mri_synthstrip -i {} -o {}', shell=True)
         
         # Compare masks
+        # TODO compare all three masks
         comp_masks(s)
         
     except:
-        pass
+        if telegram:
+            sendtel(f'{s}: Unable to create at least one of the masks.')
+        with open('eddy_errors.log', 'a') as l:
+            l.write(f'{dt.now()}\t{s}\tCannot make masks\n')    
+            l.close()
+        break
     
-
     ## -- RUN EDDY -- ##    
     try:
         # run eddy with outlier replacement --repol, slice to volume correction
@@ -96,7 +112,12 @@ for idx, s in enumerate(subs):
             --out=tmp/$1_dwi_cor --verbose --json=tmp/$1_AP.json --cnr_maps', shell=True)
 
     except:
-        pass
+        if telegram:
+            sendtel(f'{s}: Eddy process failed.')
+        with open('eddy_errors.log', 'a') as l:
+            l.write(f'{dt.now()}\t{s}\tEddy failed\n')    
+            l.close()
+        break
 
     ## -- RUN EDDYQC -- ##
     try:
@@ -105,6 +126,21 @@ for idx, s in enumerate(subs):
             -m tmp/$1_dwi_b0_brain_mask_otsu.nii.gz -b tmp/$1_AP.bval \
             -v -o tmp/eddyqc', shell=True)
     except:
-        pass
+        if telegram:
+            sendtel(f'{s}: EddyQC failed.')
+        with open('eddy_errors.log', 'a') as l:
+            l.write(f'{dt.now()}\t{s}\tEddyQC Failed\n')    
+            l.close()
+        break
     
     ## -- SAVE TO EXTERNAL -- ##
+    try:
+        # TODO
+        pass
+    except:
+        if telegram:
+            sendtel(f'{s}: Unable to copy files back to storage.')
+        with open('eddy_errors.log', 'a') as l:
+            l.write(f'{dt.now()}\t{s}\tCannot copy files back\n')    
+            l.close()
+        break
