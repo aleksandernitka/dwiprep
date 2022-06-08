@@ -21,7 +21,7 @@ args.add_argument('input', help = 'Either a CSV file containing subject ids for 
 args.add_argument('datain', help = 'Path where the data is stored.')
 args.add_argument('singularity', help = 'Path to singularity container with FSL')
 args.add_argument('-w', '--wait', help = 'Number of minutes to wait before the processing of the list starts.', required = False, default = 0, type = int)
-args.add_argument('-nt', 'notelegram', help = 'Do not send any telegram messages.', required = False, default = False, action = 'store_true')
+args.add_argument('-nt', '--notelegram', help = 'Do not send any telegram messages.', required = False, default = False, action = 'store_true')
 args.add_argument('-ev', '--eddyverbose', help = 'Run eddy with verbose flag.', required = False, default = False, action = 'store_true')
 args.add_argument('-nclean', '--noclean', help = 'Do not clean up the temporary directory.', required = False, action = 'store_true')
 args.add_argument('-ncopy', '--nocopy', help = 'Do not copy the data to the temporary directory.', required = False, action = 'store_true')
@@ -47,7 +47,7 @@ else:
 # Check container
 if exists(args.singularity):
     # print info about container
-    sp.run(f'singularity inspect {args.singularity}')    
+    sp.run(f'singularity inspect {args.singularity}', shell=True)    
 else:
     print('Container error: singularity container not found.')
     exit(1)
@@ -62,7 +62,7 @@ else:
 # check if singularity file for synthstrip is in place:
 if exists('synthstrip.1.0.sif'):
     print('Singularity file for synthstrip found.')
-    sp.run(f'singularity inspect {args.singularity}') 
+    sp.run(f'singularity inspect {args.singularity}', shell=True) 
 else:
     print('Singularity file for synthstrip not found. Please download from https://surfer.nmr.mgh.harvard.edu/docs/synthstrip/')
     exit(1)
@@ -122,7 +122,7 @@ for idx, s in enumerate(subs):
     
     ## -- MAKE BRAINMASK -- ##
     try:
-        sp.run(f'fslroi {s}_AP_b0s.nii.gz {s}_AP_b0s_1.nii.gz 0 1')
+        sp.run(f'fslroi {s}_AP_b0s.nii.gz {s}_AP_b0s_1.nii.gz 0 1', shell=True)
         # make brain mask with SynthStrip container
         sp.run(f'python mri_synthstrip -i tmp/{s}/{s}_AP_b0s_1.nii.gz -o tmp/{s}/{s}_AP_b0s_1_brain_syns.nii.gz -m tmp/{s}/{s}_brainmask_syns.nii.gz ', shell=True)
 
