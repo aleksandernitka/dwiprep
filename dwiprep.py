@@ -151,33 +151,7 @@ def mk_otsu_brain_mask(sid):
     
 
 
-def mk_index_eddy(sid):
-    """
-    Creates index for Eddy.
 
-    Parameters
-    ----------
-    sid : str
-        Subject id with 'sub' prefix.
-
-    Returns
-    -------
-    - index file: eddyindex.txt
-
-    """
-    
-    import os
-    from dipy.io.image import load_nifti
-    
-    dwi, __ = load_nifti(os.path.join('tmp', sid, f'{sid}_AP_denoised.nii.gz'))
-    vols = dwi.shape[3]
-    
-    #print(f'{sid} {vols} detected')
-    
-    with open(os.path.join('tmp', sid, 'eddyindex.txt'), 'w') as i:
-        for l in range(1, vols+1):
-            i.write('1 ')
-    i.close()
     
    
 def mk_b0s(sid):
