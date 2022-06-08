@@ -8,6 +8,7 @@ Created on Tue May 31 13:00:38 2022
 
 import argparse
 from os.path import join, exists
+from os import mkdir
 from time import sleep
 from datetime import datetime as dt
 from datetime import timedelta as td
@@ -20,6 +21,7 @@ args.add_argument('mode', choices=('list', 'subject'), help='Mode of operation.'
 args.add_argument('input', help = 'Either a CSV file containing subject ids for list mode or a single subject Id for subject mode')
 args.add_argument('datain', help = 'Path where the data is stored.')
 args.add_argument('singularity', help = 'Path to singularity container with FSL')
+args.add_argument('synthstrip', help = 'Path to synthstrip container')
 args.add_argument('-w', '--wait', help = 'Number of minutes to wait before the processing of the list starts.', required = False, default = 0, type = int)
 args.add_argument('-nt', '--notelegram', help = 'Do not send any telegram messages.', required = False, default = False, action = 'store_true')
 args.add_argument('-ev', '--eddyverbose', help = 'Run eddy with verbose flag.', required = False, default = False, action = 'store_true')
@@ -53,6 +55,7 @@ else:
     exit(1)
 
 # Check synthstrip wrapper in place:
+# TODO change to just sif
 if exists('synthstrip-singularity'):
     print('Synthstrip wrapper found.')
 else:
@@ -104,12 +107,12 @@ for idx, s in enumerate(subs):
             f'{s}_AP.bvec',\
             f'{s}_AP.json',\
             f'{s}_PA.json',\
-            f'{s}_AP-PA_topup_fieldcoef.nii.gz'\
-            f'{s}_AP-PA_topup_movpar.txt'\
+            f'{s}_AP-PA_topup_fieldcoef.nii.gz',\
+            f'{s}_AP-PA_topup_movpar.txt',\
             'acqparams.txt']
 
-        for f in fcp:
-            shutil.copy(join(args.datain, s, f'{s}{f}'), join('tmp', s, f'{s}{f}'))
+        for i in fcp:
+            shutil.copy(join(args.datain, s, i), join('tmp', s, i))
 
     except:
         
@@ -122,9 +125,9 @@ for idx, s in enumerate(subs):
     
     ## -- MAKE BRAINMASK -- ##
     try:
-        sp.run(f'fslroi {s}_AP_b0s.nii.gz {s}_AP_b0s_1.nii.gz 0 1', shell=True)
+        sp.run(f'singularity exec {args.singularity} fslroi tmp/{s}/{s}_AP_denoised.nii.gz tmp/{s}/{s}_AP_b0s_1.nii.gz 0 1', shell=True)
         # make brain mask with SynthStrip container
-        sp.run(f'python mri_synthstrip -i tmp/{s}/{s}_AP_b0s_1.nii.gz -o tmp/{s}/{s}_AP_b0s_1_brain_syns.nii.gz -m tmp/{s}/{s}_brainmask_syns.nii.gz ', shell=True)
+        sp.run(f'singularity exec {args.synthstrip} mri_synthstrip -i tmp/{s}/{s}_AP_b0s_1.nii.gz -o tmp/{s}/{s}_AP_b0s_1_brain_syns.nii.gz -m tmp/{s}/{s}_brainmask_syns.nii.gz ', shell=True)
 
         # TODO plot mask for control
         

@@ -149,41 +149,7 @@ def mk_otsu_brain_mask(sid):
     save_nifti(os.path.join('tmp', sid, f'{sid}_iout_otsu.nii.gz'), b0_mask, b0_affine)
     save_nifti(os.path.join('tmp', sid, f'{sid}_iout_otsu_mask.nii.gz'), mask.astype(np.float32), b0_affine)
     
-def comp_masks(sid):
-    
-    """
-    Should be run after both mk_otsu_brain_mask and mk_bet_brain_mask were run
-    this fn plots the three against each other for comparison
-    Generates one image for QA.
-    """
-    
-    from nilearn import plotting
-    import matplotlib.pyplot as plt
-    from os.path import join
-    from matplotlib.patches import Rectangle
-    
-    p_b2 = join('tmp', sid, f'{sid}_iout_bet2_mask.nii.gz')
-    p_b2c = join('tmp', sid, f'{sid}_iout_bet2c_mask.nii.gz')
-    p_otsu = join('tmp', sid, f'{sid}_iout_otsu_mask.nii.gz')
-    p_img = join('tmp', sid, f'{sid}_iout_mean.nii.gz')
-    
-    a = .3 # alpha
-    l = 2 # line
-    fig = plt.figure(figsize=(12, 5))
-    # plot with nilearn
-    display = plotting.plot_anat(p_img, cut_coords = (0, 0, 50), display_mode='ortho', cmap='gray', draw_cross = 0, figure = fig, title = f'{sid}')
-    display.add_contours(p_b2, alpha = a, antialiased=1, linewidths=l, colors=['red'], filled = 0)
-    display.add_contours(p_b2c, alpha = a, antialiased=1, linewidths=l, colors=['blue'], filled = 0)
-    display.add_contours(p_otsu, alpha = a, antialiased=1, linewidths=l, colors=['green'], filled = 0)
-    display.annotate(scalebar=True)
-    
-    bet2 = Rectangle((0, 0), 1, 1, fc="red")
-    bet2c = Rectangle((0, 0), 1, 1, fc="blue")
-    otsu = Rectangle((0, 0), 1, 1, fc="green")
-    plt.legend([bet2, bet2c, otsu], ["BET2", "BET2+c", "OTSU"])
 
-    display.savefig(f'tmp/{sid}/{sid}_MSKQA.png')
-    display.close()
 
 def mk_index_eddy(sid):
     """
