@@ -51,7 +51,7 @@ else:
         telegram = False
 
 # Check containers
-if args.insp:
+if args.inspect:
     containers = [args.fsl, args.nilearn, args.dipy]
     for c in containers:
         
