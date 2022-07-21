@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
+Requires:
++ dipy 1.5
++ fsl
++ nibabel
++ synthstrip container
++ singularity
 
 Created on Tue May 31 13:00:38 2022
 @author: aleksander nitka
@@ -20,23 +26,15 @@ args = argparse.ArgumentParser(description='Function to run Eddy correction (ope
 args.add_argument('mode', choices=('list', 'subject'), help='Mode of operation.')
 args.add_argument('input', help = 'Either a CSV file containing subject ids for list mode or a single subject Id for subject mode')
 args.add_argument('datain', help = 'Path where the data is stored.')
-args.add_argument('fsl', help = 'Path to singularity container with FSL')
-args.add_argument('nilearn', help = 'Path to singularity container with Nilearn')
-args.add_argument('dipy', help = 'Path to singularity container with DIPY')
-args.add_argument('-w', '--wait', help = 'Number of minutes to wait before the processing of the list starts.', required = False, default = 0, type = int)
+args.add_argument('-fsl', '--fsl', help = 'Path to FSL container.', default = 'fsl.sif')
+args.add_argument('-dipy', '--dipy', help = 'Path to DIPY container.', default = 'dipy.sif')
+args.add_argument('-nil', '--nilearn', help = 'Path to NILENEAR container.', default = 'nilearn.sif')
+args.add_argument('-u', '--update', help="Send telegram updates every X subjects", type=int, default=0)
 args.add_argument('-nt', '--notelegram', help = 'Do not send any telegram messages.', required = False, default = False, action = 'store_true')
 args.add_argument('-ev', '--eddyverbose', help = 'Run eddy with verbose flag.', required = False, default = False, action = 'store_true')
-args.add_argument('-insp', '--inspect', help = 'Inspect all containers before running', required = False, default=False, action='store_true')
 args.add_argument('-nclean', '--noclean', help = 'Do not clean up the temporary directory.', required = False, action = 'store_true')
 args.add_argument('-ncopy', '--nocopy', help = 'Do not copy the data to the temporary directory.', required = False, action = 'store_true')
 args = args.parse_args()
-
-# TODO synthstrip to work as direct container not as python wrapper
-
-# setting of a delay start, especially useful when running multiple instances of the script
-if args.wait > 0:
-    print(f'Waiting for {args.wait} minutes. Will start processing at {dt.now() + td(minutes=args.wait)}.')
-    sleep(args.wait * 60)
 
 # if telegram notification has been set up, send a message
 if args.notelegram:
@@ -50,29 +48,19 @@ else:
         print('Could not find telegram script. Will not send any messages.')
         telegram = False
 
-# Check containers
-if args.inspect:
-    containers = [args.fsl, args.nilearn, args.dipy]
-    for c in containers:
-        
-        if exists(c):
-            # print info about container
-            print('----- Container Inspection -----')
-            print(c)
-            sp.run(f'singularity inspect {c}', shell=True)
-            print('--------------------------------')
-        else:
-            print(f'Container error: singularity container {c} not found.')
-            exit(1)
+# Check if all conrainers are in place:
+conts = [args.fsl, args.dipy, args.nilearn]
+for c in conts:
+    if not exists(c):
+        print('Could not find container: ' + c)
+        exit(1)
 
-# TODO change
 # Check synthstrip wrapper in place:
 if exists('synthstrip-singularity'):
     print('Synthstrip wrapper found.')
 else:
     print('Synthstrip wrapper not found. Please download from https://surfer.nmr.mgh.harvard.edu/docs/synthstrip/')
     exit(1)
-
 
 # Determine what to run based on mode
 if args.mode == 'list':
@@ -87,10 +75,9 @@ else:
     subs = [args.input]
     ln = None
     if telegram:
-        sendtel(f'Eddy started: {args.input}')
+        sendtel(f'Eddy started subject: {args.input}')
 
 
-    
 # Add to log - mark list start
 with open('eddy_done.log', 'a') as l:
     l.write(f'{dt.now()}\tSTART\t{args.input}\n')    
@@ -98,11 +85,19 @@ with open('eddy_done.log', 'a') as l:
 
 for idx, s in enumerate(subs):
     
+    if args.updates != 0:
+        if telegram:
+            if idx % args.updates == 0:
+                sendtel(f'Eddy update: started subject {s}; {idx}/{len(subs)}')
+
     print(f'{s} -- {idx} out of {len(subs)} from {ln}')
     
     ## -- COPY REQ FILES -- ##
     try:
         mkdir(join('tmp', s))
+        # Copy all data to in folder, as this is not overwritten it will be removed
+        # and only new files not in 'in' will be kept and moved to archive
+        mkdir(join('tmp', s, 'in'))
         
         # Copy all required files:
         fcp = [f'{s}_AP_denoised.nii.gz',\
@@ -116,7 +111,7 @@ for idx, s in enumerate(subs):
             'acqparams.txt']
 
         for i in fcp:
-            shutil.copy(join(args.datain, s, i), join('tmp', s, i))
+            shutil.copy(join(args.datain, s, i), join('tmp', s, 'in', i))
 
     except:
         
@@ -130,12 +125,12 @@ for idx, s in enumerate(subs):
     ## -- MAKE BRAINMASK -- ##
     try:
         sp.run(f'singularity exec {args.fsl} fslroi \
-               tmp/{s}/{s}_AP_denoised.nii.gz tmp/{s}/{s}_AP_b0s_1.nii.gz 0 1', \
+               tmp/{s}/in/{s}_AP_denoised.nii.gz tmp/{s}/{s}_AP_b0s_1.nii.gz 0 1', \
                shell=True)
             
         # make brain mask with SynthStrip container
         sp.run(f'python synthstrip-singularity \
-            -i tmp/{s}/{s}_AP_b0s_1.nii.gz \
+            -i tmp/{s}/in/{s}_AP_b0s_1.nii.gz \
             -o tmp/{s}/{s}_AP_b0s_1_brain_syns.nii.gz \
             -m tmp/{s}/{s}_brainmask_syns.nii.gz ', shell=True)
 
@@ -153,7 +148,7 @@ for idx, s in enumerate(subs):
     ## -- MAKE INDEX -- ##
     try:
         sp.run(f'singularity run {args.dipy} python mk_eddyi.py \
-               tmp/{s}/{s}_AP_denoised.nii.gz', shell=True)
+               tmp/{s}/in/{s}_AP_denoised.nii.gz', shell=True)
     except:
         pass
     
@@ -162,10 +157,10 @@ for idx, s in enumerate(subs):
     try:
         # run eddy with outlier replacement --repol, slice to volume correction
         cmd = f'singularity exec {args.fsl} eddy_openmp \
-            --imain=tmp/{s}/{s}_AP_denoised.nii.gz --mask=tmp/{s}/{s}_brainmask_syns.nii.gz \
-            --acqp=tmp/{s}/acqparams.txt --index=tmp/{s}/eddyindex.txt --bvecs=tmp/{s}/{s}_AP.bvec \
-            --bvals=tmp/{s}/{s}_AP.bval --topup=tmp/{s}/{s}_AP-PA_topup --repol --niter=8 \
-            --out=tmp/{s}/{s}_dwi --json=tmp/{s}/{s}_AP.json --cnr_maps'
+            --imain=tmp/{s}/in/{s}_AP_denoised.nii.gz --mask=tmp/{s}/{s}_brainmask_syns.nii.gz \
+            --acqp=tmp/{s}/in/acqparams.txt --index=tmp/{s}/eddyindex.txt --bvecs=tmp/{s}/in/{s}_AP.bvec \
+            --bvals=tmp/{s}/in/{s}_AP.bval --topup=tmp/{s}/in/{s}_AP-PA_topup --repol --niter=8 \
+            --out=tmp/{s}/{s}_dwi --json=tmp/{s}/in/{s}_AP.json --cnr_maps'
 
         if args.eddyverbose:
             cmd = cmd + ' --verbose'
@@ -184,8 +179,8 @@ for idx, s in enumerate(subs):
     try:
 
         cmd = f'singularity exec {args.fsl} eddy_quad \
-            tmp/{s}/{s}_dwi -idx tmp/{s}/eddyindex.txt -par tmp/{s}/acqparams.txt \
-            -m tmp/{s}/{s}_brainmask_syns.nii.gz -b tmp/{s}/{s}_AP.bval \
+            tmp/{s}/{s}_dwi -idx tmp/{s}/eddyindex.txt -par tmp/{s}/in/acqparams.txt \
+            -m tmp/{s}/{s}_brainmask_syns.nii.gz -b tmp/{s}/in/{s}_AP.bval \
             -o tmp/{s}/eddyqc'
         
         if args.eddyverbose:
@@ -200,13 +195,16 @@ for idx, s in enumerate(subs):
             l.close()
         break
     
+
     ## -- SAVE TO EXTERNAL -- ##
     if args.nocopy:
         pass
     else:
         try:
-            # TODO
-            pass
+            # remove the files that are already in the archive
+            sp.run(f'rm -rf tmp/{s}/in', shell=True)
+            # copy files to external drive
+            sp.run(f'cp -r tmp/{s}/* {join(args.datain, s)}', shell=True)
         except:
             if telegram:
                 sendtel(f'{s}: Unable to copy files back to storage.')
