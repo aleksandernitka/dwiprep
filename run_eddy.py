@@ -15,21 +15,19 @@ Created on Tue May 31 13:00:38 2022
 import argparse
 from os.path import join, exists
 from os import mkdir
-from time import sleep
 from datetime import datetime as dt
-from datetime import timedelta as td
 import numpy as np
 import subprocess as sp
 import shutil
 
 args = argparse.ArgumentParser(description='Function to run Eddy correction (open mp) and Eddyqc using singularity container with FSL', epilog="by Aleksander Nitka")
-args.add_argument('mode', choices=('list', 'subject'), help='Mode of operation.')
+args.add_argument('mode', choices=('list', 'subject', 'l', 's'), help='Mode of operation.')
 args.add_argument('input', help = 'Either a CSV file containing subject ids for list mode or a single subject Id for subject mode')
 args.add_argument('datain', help = 'Path where the data is stored.')
 args.add_argument('-fsl', '--fsl', help = 'Path to FSL container.', default = 'fsl.sif')
 args.add_argument('-dipy', '--dipy', help = 'Path to DIPY container.', default = 'dipy.sif')
 args.add_argument('-nil', '--nilearn', help = 'Path to NILENEAR container.', default = 'nilearn.sif')
-args.add_argument('-u', '--update', help="Send telegram updates every X subjects", type=int, default=0)
+args.add_argument('-upd', '--updateme', help="Send telegram updates every X subjects", type=int, default=0)
 args.add_argument('-nt', '--notelegram', help = 'Do not send any telegram messages.', required = False, default = False, action = 'store_true')
 args.add_argument('-ev', '--eddyverbose', help = 'Run eddy with verbose flag.', required = False, default = False, action = 'store_true')
 args.add_argument('-nclean', '--noclean', help = 'Do not clean up the temporary directory.', required = False, action = 'store_true')
@@ -63,20 +61,22 @@ else:
     exit(1)
 
 # Determine what to run based on mode
-if args.mode == 'list':
+if args.mode in ['l','list']:
     subs = np.loadtxt(args.input, delimiter = '\n', dtype=str)
     # istolate list name
     ln = args.input.split('/')[-1].split('.')[0]
     if telegram:
         sendtel(f'Eddy started: list {ln}')
-else:
+elif args.mode in ['s', 'subject']:
     if not 'sub-' in args.input:
         args.input = 'sub-' + args.input
     subs = [args.input]
     ln = None
     if telegram:
         sendtel(f'Eddy started subject: {args.input}')
-
+else:
+    print(f'Mode of operation {args.mode} not recognised, choose a correct mode.')
+    exit()
 
 # Add to log - mark list start
 with open('eddy_done.log', 'a') as l:
@@ -85,12 +85,12 @@ with open('eddy_done.log', 'a') as l:
 
 for idx, s in enumerate(subs):
     
-    if args.updates != 0:
+    if args.updateme != 0:
         if telegram:
-            if idx % args.updates == 0:
+            if idx % args.updateme == 0:
                 sendtel(f'Eddy update: started subject {s}; {idx}/{len(subs)}')
 
-    print(f'{s} -- {idx} out of {len(subs)} from {ln}')
+    print(f'{s} -- {idx+1} out of {len(subs)}')
     
     ## -- COPY REQ FILES -- ##
     try:
@@ -120,7 +120,7 @@ for idx, s in enumerate(subs):
         with open('eddy_errors.log', 'a') as l:
             l.write(f'{dt.now()}\t{s}\tCannot copy files\n')    
             l.close()
-        break
+        #break
     
     ## -- MAKE BRAINMASK -- ##
     try:
@@ -130,7 +130,7 @@ for idx, s in enumerate(subs):
             
         # make brain mask with SynthStrip container
         sp.run(f'python synthstrip-singularity \
-            -i tmp/{s}/in/{s}_AP_b0s_1.nii.gz \
+            -i tmp/{s}/{s}_AP_b0s_1.nii.gz \
             -o tmp/{s}/{s}_AP_b0s_1_brain_syns.nii.gz \
             -m tmp/{s}/{s}_brainmask_syns.nii.gz ', shell=True)
 
