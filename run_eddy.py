@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
+TODO:
++ Add degibbs 
++ add another run_ for qc websites
+
 Requires:
 + dipy 1.5
 + fsl
@@ -195,7 +199,6 @@ for idx, s in enumerate(subs):
             l.close()
         break
     
-
     ## -- SAVE TO EXTERNAL -- ##
     if args.nocopy:
         pass
