@@ -16,6 +16,8 @@ args = args.parse_args()
 if 'sub-' not in args.sub:
     args.sub = 'sub-' + str(args.sub)
 
+print(f'{args.sub}: plotting and comparing images.')
+
 # Load images
 img0, aff0 = load_nifti(join(args.data, args.sub, f'{args.sub}_AP.nii'))
 img1, aff1 = load_nifti(join(args.data, args.sub, f'{args.sub}_order-1_gib_p2s.nii'))
@@ -44,8 +46,8 @@ ax.flat[1].set_title(f'1. GIBBS then P2S\n$\sigma$ = {str(np.round(sigma1[0], 2)
 # Image 2
 ax.flat[2].imshow(img2[:,:,50,0].T, cmap='gray', origin='lower')
 ax.flat[2].set_title(f'2. P2S then GIBBS\n$\sigma$ = {str(np.round(sigma2[0], 2))}, M = {str(np.round(means[1],2))}, SD = {str(np.round(stds[2],2))}')
-# Difference
-ax.flat[3].imshow(img1[:,:,50,0].T - img2[:,:,50,0].T, cmap='gray', origin='lower')
+# Difference np.sqrt((orig - den) ** 2)
+ax.flat[3].imshow(np.sqrt(img1[:,:,50,0].T - img2[:,:,50,0].T) ** 2, cmap='gray', origin='lower')
 ax.flat[3].set_title('Difference')
 
 fig1.savefig(join(args.data, args.sub, f'{args.sub}_compare.png'))
