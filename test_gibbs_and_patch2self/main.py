@@ -50,3 +50,7 @@ for o in [1,2]:
     for i, s in enumerate(sample):
         print(f'\nRunning the test: Order {o} for sub-{s}: {i+1} out of {len(sample)}.')
         sp.run(f'python run_denoise.py {s} {o}', shell=True)
+
+# Compare both images, highlight differences
+for i in sample:
+    sp.run(f'python compare.py {i}', shell=True)

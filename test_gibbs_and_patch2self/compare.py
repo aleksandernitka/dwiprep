@@ -6,6 +6,7 @@ from os.path import join
 import matplotlib.pyplot as plt
 from dipy.io.image import load_nifti
 from dipy.denoise.noise_estimate import estimate_sigma
+import numpy as np
 
 args = argparse.ArgumentParser('Compares images from both denoising methods.')
 args.add_argument('sub', help='subject ID')
@@ -47,5 +48,5 @@ ax.flat[3].set_title('Difference')
 plt1.savefig(join(args.data, args.sub, f'{args.sub}_compare.png'))
 
 # plotting for the noise per volume
-fig2, ax = plt.subplots(4,1,figsize=(16,10), subplot_kw = {'xticks':[], 'yticks':[]})
-ax.flat[0].plot(sigma0)
+#fig2, ax = plt.subplots(4,1,figsize=(16,10), subplot_kw = {'xticks':[], 'yticks':[]})
+#ax.flat[0].plot(sigma0)
