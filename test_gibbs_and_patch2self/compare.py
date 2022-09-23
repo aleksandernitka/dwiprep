@@ -45,8 +45,17 @@ ax.flat[2].set_title(f'2. P2S then GIBBS, sigma = {str(np.round(sigma2[0], 2))}'
 ax.flat[3].imshow(img1[:,:,50,0].T - img2[:,:,50,0], cmap='gray', origin='lower', vmin=-1000, vmax=1000)
 ax.flat[3].set_title('Difference')
 
-plt1.savefig(join(args.data, args.sub, f'{args.sub}_compare.png'))
+fig1.savefig(join(args.data, args.sub, f'{args.sub}_compare.png'))
 
 # plotting for the noise per volume
-#fig2, ax = plt.subplots(4,1,figsize=(16,10), subplot_kw = {'xticks':[], 'yticks':[]})
-#ax.flat[0].plot(sigma0)
+fig2, ax = plt.subplots(4,1,figsize=(16,10), subplot_kw = {'xticks':[], 'yticks':[]})
+ax.flat[0].plot(sigma0)
+ax.flat[0].set_title('Noise per volume for RAW image')
+ax.flat[1].plot(sigma1)
+ax.flat[1].set_title('Noise per volume for 1. GIBBS then P2S')
+ax.flat[2].plot(sigma2)
+ax.flat[2].set_title('Noise per volume for 2. P2S then GIBBS')
+ax.flat[3].plot(np.subtract(sigma1, sigma2))
+ax.flat[3].set_title('Difference')
+
+fig2.savefig(join(args.data, args.sub, f'{args.sub}_noise.png'))
