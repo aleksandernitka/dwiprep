@@ -126,8 +126,8 @@ if process[0]:
         
         # Run Gibbs de-ringin
         print(f'Running Gibbs de-ringin for {s} ({i+1}/{len(subs)})')
-        sp.run(f'dipy_gibbs_ringing tmp/{s}/{s}_AP.nii --num_processes {a.threads} --out_unring tmp/{s}/{s}_AP_gib.nii.gz -v', shell=True) 
-        sp.run(f'dipy_gibbs_ringing tmp/{s}/{s}_PA.nii --num_processes {a.threads} --out_unring tmp/{s}/{s}_PA_gib.nii.gz -v', shell=True)
+        sp.run(f'dipy_gibbs_ringing tmp/{s}/{s}_AP.nii --num_processes {a.threads} --out_unring tmp/{s}/{s}_AP_gib.nii.gz', shell=True) 
+        sp.run(f'dipy_gibbs_ringing tmp/{s}/{s}_PA.nii --num_processes {a.threads} --out_unring tmp/{s}/{s}_PA_gib.nii.gz', shell=True)
         
         # Create control plot GIF plus selected volumes compared to raw
         print(f'Creating QA plots for {s} ({i+1}/{len(subs)})')
