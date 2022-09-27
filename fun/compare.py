@@ -7,6 +7,12 @@ import matplotlib.pyplot as plt
 from dipy.io.image import load_nifti
 import numpy as np
 
+"""
+Takes in two images (pre/post) and plots differences between the two
+TODO:
+- replace fname with outfile that has a full path
+"""
+
 args = argparse.ArgumentParser('Compares images for visual inspection. Plots three planes from both images and difference between the two.')
 args.add_argument('sub', help='subject ID')
 args.add_argument('vol1', help='Path to first dwi volume')
@@ -67,4 +73,4 @@ for v in args.vols:
         ax.flat[5].imshow(img0[:,args.slice[1],:,v].T - img1[:,args.slice[1],:,v].T, cmap=args.cmap, origin='lower')
         ax.flat[8].imshow(img0[args.slice[2],:,:,v].T - img1[args.slice[2],:,:,v].T, cmap=args.cmap, origin='lower')
     plt.tight_layout()
-    fig.savefig(join(args.data, args.sub, f'{args.sub}_{args.fname}_v{v}.png'))
+    fig.savefig(join(args.data, args.sub, 'png', f'{args.sub}_{args.fname}_v{v}.png'))

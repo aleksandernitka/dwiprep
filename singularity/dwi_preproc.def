@@ -4,7 +4,7 @@
 # DIPY 1.5.0
 # FSL 6.0.5
 # Fury 0.8.0
-# Nilearn 0.9.2
+# Nilearn 0.9.0
 # Nipype 1.8.5
 # Scikit Learn 1.1.2
 # Scikit Image 0.19.3
@@ -13,8 +13,8 @@ Bootstrap: docker
 From: ubuntu:22.04
 
 %environment
-export CONDA_DIR="/opt/miniconda-latest"
-export PATH="/opt/miniconda-latest/bin:$PATH"
+export CONDA_DIR="/opt/miniconda-dwi"
+export PATH="/opt/miniconda-dwi/bin:$PATH"
 export FSLDIR="/opt/fsl-6.0.5"
 export PATH="/opt/fsl-6.0.5/bin:$PATH"
 export FSLOUTPUTTYPE="NIFTI_GZ"
@@ -67,11 +67,11 @@ echo "Installing FSL conda environment ..."
 bash /opt/fsl-6.0.5/etc/fslconf/fslpython_install.sh -f /opt/fsl-6.0.5
 
 # Install dependencies.
-export PATH="/opt/miniconda-latest/bin:$PATH"
+export PATH="/opt/miniconda-dwi/bin:$PATH"
 echo "Downloading Miniconda installer ..."
 conda_installer="/tmp/miniconda.sh"
 curl -fsSL -o "$conda_installer" https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
-bash "$conda_installer" -b -p /opt/miniconda-latest
+bash "$conda_installer" -b -p /opt/miniconda-dwi
 rm -f "$conda_installer"
 conda update -yq -nbase conda
 # Prefer packages in conda-forge
@@ -96,14 +96,25 @@ alias l='ls -CF'
 
 # Install all required conda packages
 conda install python=3.9 -y
-pip install nipype==1.8.5
-conda install -c conda-forge nilearn=0.9.2 -y
+
+conda install -c anaconda numpy=1.23.1 -y
+conda install -c conda-forge scipy=1.9.1 -y
+conda nistall -c conda forge nipype=1.8.5 -y
+conda install -c conda-forge pandas=1.5.0 -y
+conda install -c conda-forge matplotlib=3.6.0 -y
+
+conda install -c conda-forge nilearn=0.9.0 -y
 conda install -c conda-forge dipy=1.5.0 -y
 conda install -c conda-forge fury=0.8.0 -y
+
 conda install -c conda-forge scikit-learn=1.1.2 -y
 conda install -c conda-forge jupyterlab -y
 conda install scikit-image=0.19.3 -y
 conda install -c conda-forge cmocean -y
-pip install Pillow==9.2.0
+conda install -c conda-forge seaborn=0.12.0 -y
+conda install -c conda-forge pillow=9.2.0 -y
+conda install -c anaconda numpy=1.23.1 -y
+conda install -c conda-forge napari=0.4.16 -y
+conda install -c conda-forge napari-mri=0.1.0 -y
 
 # End
