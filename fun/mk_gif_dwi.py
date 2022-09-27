@@ -45,7 +45,7 @@ for v in range(img.shape[-1]):
 print('Compiling GIF...')
 images = [Image.open(join(a.output, 'png', i)) for i in ls(join(a.output, 'png')) if i.endswith('.png') and i.startswith('tmp_img')]
 image1 = images[0]
-image1.save(join(a.output, 'png', a.name + '.gif'), format = "GIF", save_all=True, append_images=images[1:], duration=100, loop=0)
+image1.save(join(a.output, 'png', a.name + '.gif'), format = "GIF", save_all=True, append_images=images[1:], duration=1000, loop=0)
 
 # Clean up
 print('Cleaning up...')
