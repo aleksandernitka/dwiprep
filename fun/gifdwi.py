@@ -23,7 +23,7 @@ except:
     exit(1)
 
 if not exists(a.output):
-    print(f'Could not locate {a.output}')
+    print(f'Could not locate {dirname(a.output)}')
     exit(1)
 
 print('Extracting volumes...')
