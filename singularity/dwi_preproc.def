@@ -97,11 +97,9 @@ alias l='ls -CF'
 # Install all required conda packages
 conda install python=3.9 -y
 
-conda install -c anaconda numpy=1.23.1 -y
+conda install -c anaconda numpy=1.22.2 -y
 conda install -c conda-forge scipy=1.9.1 -y
 conda nistall -c conda forge nipype=1.8.5 -y
-conda install -c conda-forge pandas=1.5.0 -y
-conda install -c conda-forge matplotlib=3.6.0 -y
 
 conda install -c conda-forge nilearn=0.9.0 -y
 conda install -c conda-forge dipy=1.5.0 -y
@@ -111,10 +109,6 @@ conda install -c conda-forge scikit-learn=1.1.2 -y
 conda install -c conda-forge jupyterlab -y
 conda install scikit-image=0.19.3 -y
 conda install -c conda-forge cmocean -y
-conda install -c conda-forge seaborn=0.12.0 -y
-conda install -c conda-forge pillow=9.2.0 -y
-conda install -c anaconda numpy=1.23.1 -y
-conda install -c conda-forge napari=0.4.16 -y
-conda install -c conda-forge napari-mri=0.1.0 -y
+conda install -c conda-forge pillow -y
 
 # End
