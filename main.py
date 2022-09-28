@@ -1,11 +1,12 @@
 import argparse
-from distutils.sysconfig import get_config_h_filename
 from os import listdir as ls
 from os import mkdir
 from os.path import join, exists
 import subprocess as sp
 import numpy as np # not used to calulcate but to read text file
+
 from fun.stauslog import StatusLog
+from fun.qahtml import QaHtml
 
 """
 This file should be run only after the singularity image has been loaded (singularity/dwi_preproc.sif). 
@@ -33,7 +34,7 @@ args.add_argument('-r', '--run', help='Where to start or pickup process from: 1.
 args.add_argument('-t', '--threads', help='Number of threads to use', type=int, default=-1)
 args.add_argument('-noclean', '--noclean', help='Do not clean tmp dir but move to dataout', action='store_true', default=False)
 args.add_argument('-nocopy', '--nocopy', help='Do not copy data to dataout', action='store_true', default=False)
-args.add_argument('-notg' '--notelegram', help='Do not send telegram message', action='store_true', default=False)
+args.add_argument('-notg', '--notelegram', help='Do not send telegram message', action='store_true', default=False)
 a = args.parse_args()
 
 """
@@ -113,6 +114,11 @@ if not exists('tmp'):
 Initialise logging
 """
 log = StatusLog('status.log')
+
+"""
+Initialise QA stuff
+"""
+dwiqa = QaHtml('QAtest', subs, 'DWIPREP')
 
 """
 Establish processing pipeline based on input
