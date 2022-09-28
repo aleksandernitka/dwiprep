@@ -64,16 +64,24 @@ class QaHtml:
 
         subs = self.Subs.sort()
         # creates main html page
-        i = 1 # counter to add a line break every 10000 subjects
-        for s in subs:
-            if s.startswith(f'sub-{i}') or s.startswith(f'{i}'):
-                # TODO write <br><br> to a file and i+1
-                p.write(f'\n\n<br><center><h3><a id="sub-{i}x">sub-{i}x</a></center></h3><br>\n')
+        # List of subs is to be divided into sets of IDs of the same leading digits
+        # that is sub-1xxxx and sub-2xxxx will be in different sets
+        l = subs[0][4] # counter from the first digit of the subject number
+        for i, s in enumerate(subs):
+            if i == 0:
+                # first subject, set title
+                p.write(f'\n\n<br><br><center><h3><a id="sub-{l}x">sub-{l}x</a></center></h3><br>\n')
                 p.write(f'  <a href="subs/{s}.html">{s}</a>  \n')
-                # Increase the counter
-                i += 1
             else:
-                p.write(f'  <a href="subs/{s}.html">{s}</a>  \n')
+                if not s.startswith(f'sub-{l}'):
+                    # new digit, set title
+                    l = s[4]
+                    p.write(f'\n\n<br><br><center><h3><a id="sub-{l}x">sub-{l}x</a></center></h3><br>\n')
+                    p.write(f'  <a href="subs/{s}.html">{s}</a>  \n')
+                
+                else:
+                    # same digit, continue
+                    p.write(f'  <a href="subs/{s}.html">{s}</a>  \n')
             
         p.write(self.MainFooter)
         p.close()
