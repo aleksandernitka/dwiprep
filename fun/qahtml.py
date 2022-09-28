@@ -23,7 +23,7 @@ class QaHtml:
         self.os = os
         self.dt = dt
         self.sh = shutil
-        
+
         # The QA directory where all QAs
         self.QaDataDir = QaDataDir
         # The list of subjects
@@ -33,8 +33,6 @@ class QaHtml:
         # Set session path for easier access:
         self.SessionDirName = self.SessionName.replace(' ', '').lower()
         self.SessionPath = self.os.path.join(self.QaDataDir, self.SessionDirName)
-        
-        
 
         # check if the directory exists
         if not self.os.path.exists(self.QaDataDir):
@@ -42,6 +40,12 @@ class QaHtml:
             print(f'QA Directory created: {self.QaDataDir}')
         else:
             print(f'QA Directory already exists: {self.QaDataDir}')
+
+        if not self.os.path.exists(self.SessionPath):
+            self.os.mkdir(self.SessionPath)
+            self.os.mkdir(self.os.path.join(self.SessionPath, 'subs'))
+            self.os.mkdir(self.os.path.join(self.SessionPath, 'imgs'))
+            print(f'QA Session Directory created: {self.SessionPath}')
 
     def create_main_page(self):
         
