@@ -54,7 +54,6 @@ class QaHtml:
                             <body>\n"""
         
         # This will close the main page
-        # TODO add date/time and other info such as packages versions?
         self.MainFooter = f"""\nAll Watched Over by Machines of Loving Grace\n<br>\n
             timestamp: {self.dt.now().strftime('%Y-%m-%d %H:%M:%S')}\n</body>\n
             </html>"""
@@ -157,6 +156,12 @@ class QaHtml:
         for s in self.Subs:
             self.create_sub_page(s)
     
+    def software_versions(self, flag):
+        # Get all python packages versions to a file
+        # TODO: add FSL version
+        
+        import subprocess as sp
+        sp.run(f'pip list > {self.SessionPath}/pip_freeze_{flag}.tsv', shell=True)
     
     ###############################################################################################################
     # DWI PREPROCESSING METHODS ###################################################################################
@@ -174,7 +179,17 @@ class QaHtml:
             subject = 'sub-' + subject
         
         # Copy all the images to the imgs directory, should be in sub-x/pngs/gibbs, overwrite
-        # TODO
+        if not self.os.path.exists(self.os.path.join(subjectDataDir, 'imgs',f'{subject}', 'gibbs')):
+            self.os.path.mkdir(self.os.path.join(subjectDataDir, 'imgs',f'{subject}', 'gibbs'))
+        try:
+            self.shutil.copytree(self.os.path.join(subjectDataDir, 'pngs', 'gibbs'), self.os.path.join(self.SessionPath, 'imgs', f'{subject}', 'gibbs'))
+        except FileExistsError:
+            self.shutil.rmtree(self.os.path.join(self.SessionPath, 'imgs', f'{subject}', 'gibbs'))
+            self.shutil.copytree(self.os.path.join(subjectDataDir, 'pngs', 'gibbs'), self.os.path.join(self.SessionPath, 'imgs', f'{subject}', 'gibbs'))
+        except:
+            print(f'Error copying gibbs images for subject {subject}')
+            exit()
+        
         # Get the images
         gifs = [g for g in self.os.listdir(self.os.path.join(subjectDataDir, 'pngs', 'gibbs')) if g.endswith('.gif')]
         imgs = [f for f in self.os.listdir(self.os.path.join(subjectDataDir, 'pngs', 'gibbs')) if f.endswith('.png')]

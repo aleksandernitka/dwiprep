@@ -1,4 +1,5 @@
 import argparse
+from distutils.sysconfig import get_config_h_filename
 from os import listdir as ls
 from os import mkdir
 from os.path import join, exists
@@ -30,6 +31,8 @@ args.add_argument('-i', '--input', help='Input: subject id if mode == s, path to
 args.add_argument('-r', '--run', help='Where to start or pickup process from: 1. Gibbs de-ringing, 2. Patch2Self denoising, 3. TopUp estimaton,\
     4. Eddy, 5.Quality Reports.', default=1, metavar='[1-5]', type=int, choices=[1, 2, 3, 4, 5])
 args.add_argument('-t', '--threads', help='Number of threads to use', type=int, default=-1)
+args.add_argument('-noclean', '--noclean', help='Do not clean tmp dir but move to dataout', action='store_true', default=False)
+args.add_argument('-nocopy', '--nocopy', help='Do not copy data to dataout', action='store_true', default=False)
 a = args.parse_args()
 
 """
@@ -96,7 +99,7 @@ elif a.mode in ['a', 'all']:
         print(f'Found {len(subs)} subjects in {a.datain}')
 
 # Check if output directory exists
-if not exists(a.dataout):
+if not exists(a.dataout) and not a.nocopy:
     print(f'Could not locate {a.dataout}, please create it or ensure access. Exiting...')
     exit(1)
 
@@ -149,12 +152,16 @@ if process[0]:
             log.error(s, 'Gibbs de-ringing, Copying data')
             continue
 
+        # Created dirs for QA plots
+        sp.run(f'mkdir tmp/{s}/imgs', shell=True)
+        sp.run(f'mkdir tmp/{s}/imgs/gibbs', shell=True)
+        
         # Create control plot for raw images (gif)
         try:
-            sp.run(f'mkdir tmp/{s}/imgs', shell=True)
-            sp.run(f'mkdir tmp/{s}/imgs/gibbs', shell=True)
+            nii_file = join('tmp', s, f'{s}_AP.nii')
+            gif_file = join('tmp', s, 'imgs', 'gibbs', f'{s}_raw.gif')
 
-            sp.run(f'python fun/mk_gif_dwi.py {join("tmp", s, s + "_AP.nii")} {join("tmp", s)} -t "{s} AP raw" -n "{s}_AP_raw"', shell=True)
+            sp.run(f'python fun/gifdwi.py {nii_file} {gif_file} -t "{s} AP RAW"', shell=True)
             log.ok(s, 'Gibbs de-ringing, Creating control plot RAW')
         except:
             log.error(s, 'Gibbs de-ringing, Creating control plot RAW')
@@ -173,9 +180,10 @@ if process[0]:
         # Create control plot GIF plus selected volumes compared to raw
         print(f'Creating QA plots for {s} ({i+1}/{len(subs)})')
         try:
-            sp.run(f'mkdir tmp/{s}/imgs', shell=True)
-            sp.run(f'mkdir tmp/{s}/imgs/gibbs', shell=True)
-            sp.run(f'python fun/mk_gif_dwi.py {join("tmp", s, s + "_AP_gib.nii.gz")} {join("tmp", s)} -t "{s} AP gib" -n "{s}_AP_gib"', shell=True)
+            nii_file = join('tmp', s, f'{s}_AP_gib.nii.gz')
+            gif_file = join('tmp', s, 'imgs', 'gibbs', f'{s}_gibbs.gif')
+
+            sp.run(f'python fun/gifdwi.py {nii_file} {gif_file} -t "{s} AP gib"', shell=True)
             log.ok(s, 'Gibbs de-ringing, Creating control plot GIBBS corrected')
         except:
             log.error(s, 'Gibbs de-ringing, Creating control plot GIBBS corrected')
@@ -183,30 +191,46 @@ if process[0]:
 
         try:
             sp.run(f'python fun/compare.py {s} tmp/{s}/{s}_AP.nii tmp/{s}/{s}_AP_gib.nii.gz \
-            -n1 RAW -n2 DeGIBBS -t "RAW vs DeGIBBS AP" -f comp_ap_raw-gib -v 0 1 2 3 4 5 6 7 8 9 10', shell=True)
+            tmp/{s}/imgs/gibbs/{s}_ap_rawgib -v 0 1 2 3 4 5 6 7 8 9 10', shell=True)
+            
             sp.run(f'python fun/compare.py {s} tmp/{s}/{s}_PA.nii tmp/{s}/{s}_PA_gib.nii.gz \
-            -n1 RAW -n2 DeGIBBS -t "RAW vs DeGIBBS PA" -f comp_pa_raw-gib -v 0 1 2 3 ', shell=True)
+            tmp/{s}/imgs/gibbs/{s}_pa_rawgib -v 0 1 2 3 ', shell=True)
+            
             log.ok(s, 'Gibbs de-ringing, Creating compare plot GIBBS corrected and RAW')
         except:
             log.error(s, 'Gibbs de-ringing, Creating compare plot GIBBS corrected and RAW')
             continue
+        
+        if not a.nocopy:
+            # Copy all data back to dataout (most likely derivatives) directory
+            print(f'Copying data to {a.dataout} for {s} ({i+1}/{len(subs)})')
+            try:
+                sp.run(f'cp -fR tmp/{s} {a.dataout}', shell=True)
+                log.ok(s, f'Gibbs de-ringing, Copying data to {a.dataout}')
+            except:
+                log.error(s, f'Gibbs de-ringing, Copying data to {a.dataout}')
+                continue
+        else:
+            log.info(s, f'Gibbs de-ringing --nocopy flag, Skipping copying data to {a.dataout}')
 
-        # Copy all data back to dataout (most likely derivatives) directory
-        print(f'Copying data to {a.dataout} for {s} ({i+1}/{len(subs)})')
-        try:
-            sp.run(f'cp -fR tmp/{s} {a.dataout}', shell=True)
-            log.ok(s, f'Gibbs de-ringing, Copying data to {a.dataout}')
-            # clean from tmp
-            sp.run(f'rm -rf tmp/{s}', shell=True)
-        except:
-            log.error(s, f'Gibbs de-ringing, Copying data to {a.dataout}')
-            continue
-
+        if not a.noclean:
+            # Remove tmp directory
+            print(f'Removing tmp directory for {s} ({i+1}/{len(subs)})')
+            try:
+                sp.run(f'rm -fR tmp/{s}', shell=True)
+                log.ok(s, 'Gibbs de-ringing, Removing tmp directory')
+            except:
+                log.error(s, 'Gibbs de-ringing, Removing tmp directory')
+                continue
+        else:
+            log.info(s, 'Gibbs de-ringing --noclean flag, Skipping tmp directory removal')
+         
         log.subjectEnd(s, 'Gibbs de-ringing')
 
     # notify user that this step is complete
-    # TODO
     log.ok('ALL', 'Gibbs de-ringing complete')
+    if telegram:
+        sendtel('Gibbs de-ringing complete')
 
 if process[1]:
     """
