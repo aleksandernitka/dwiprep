@@ -68,7 +68,8 @@ class QaHtml:
             p.write(self.MainHeader)
             p.write(f'<center><h1>QA {self.SessionName}</h1></center><br><br>\n')
 
-        subs = self.Subs.sort()
+        subs = self.Subs
+        subs.sort()
         print('subs:' + str(subs))
         print('self.Subs:' + str(self.Subs))
         # creates main html page
