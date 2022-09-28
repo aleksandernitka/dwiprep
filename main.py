@@ -151,9 +151,9 @@ if process[0]:
 
         # Create control plot for raw images (gif)
         try:
-            sp.run(f'mkdir tmp/{s}/imgs', shell=True))
+            sp.run(f'mkdir tmp/{s}/imgs', shell=True)
             sp.run(f'mkdir tmp/{s}/imgs/gibbs', shell=True)
-            
+
             sp.run(f'python fun/mk_gif_dwi.py {join("tmp", s, s + "_AP.nii")} {join("tmp", s)} -t "{s} AP raw" -n "{s}_AP_raw"', shell=True)
             log.ok(s, 'Gibbs de-ringing, Creating control plot RAW')
         except:
