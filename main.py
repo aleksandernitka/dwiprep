@@ -33,6 +33,7 @@ args.add_argument('-r', '--run', help='Where to start or pickup process from: 1.
 args.add_argument('-t', '--threads', help='Number of threads to use', type=int, default=-1)
 args.add_argument('-noclean', '--noclean', help='Do not clean tmp dir but move to dataout', action='store_true', default=False)
 args.add_argument('-nocopy', '--nocopy', help='Do not copy data to dataout', action='store_true', default=False)
+args.add_argument('-notg' '--notelegram', help='Do not send telegram message', action='store_true', default=False)
 a = args.parse_args()
 
 """
@@ -47,7 +48,7 @@ if not exists('/opt/miniconda-dwi/bin/dipy_info'):
 # alternative method would be to touch a dummy file inside the container and then check for existence
 
 # Check if telegram config files are present:
-if exists('send_telegram.py'):
+if exists('send_telegram.py') and not a.notelegram:
     telegram = True
     from send_telegram import sendtel
 else:

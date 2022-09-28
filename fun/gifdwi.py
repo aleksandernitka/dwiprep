@@ -22,7 +22,7 @@ except:
     print(f'Could not load {a.input}')
     exit(1)
 
-if not exists(a.output):
+if not exists(dirname(a.output)):
     print(f'Could not locate {dirname(a.output)}')
     exit(1)
 
