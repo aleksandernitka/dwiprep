@@ -53,11 +53,11 @@ class QaHtml:
         ### HTML header and footers
         # for main html page that will have links to all subject pages
         self.MainHeader = f"""<!DOCTYPE html>\n
-                            <html>\n
-                            <head>\n
-                            \t<title>QA {self.SessionName}</title>\n
-                            </head>\n
-                            <body>\n"""
+        <html>\n
+        <head>\n
+        \t<title>QA {self.SessionName}</title>\n
+        </head>\n
+        <body>\n"""
         
         # This will close the main page
         self.MainFooter = f"""\nAll Watched Over by Machines of Loving Grace\n<br>\n
@@ -69,6 +69,8 @@ class QaHtml:
             p.write(f'<center><h1>QA {self.SessionName}</h1></center><br><br>\n')
 
         subs = self.Subs.sort()
+        print('subs:' + str(subs))
+        print('self.Subs:' + str(self.Subs))
         # creates main html page
         # List of subs is to be divided into sets of IDs of the same leading digits
         # that is sub-1xxxx and sub-2xxxx will be in different sets
