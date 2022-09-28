@@ -37,15 +37,17 @@ class QaHtml:
         # check if the directory exists
         if not self.os.path.exists(self.QaDataDir):
             self.os.mkdir(self.QaDataDir)
-            print(f'QA Directory created: {self.QaDataDir}')
+            print(f'QA directory created: {self.QaDataDir}')
         else:
-            print(f'QA Directory already exists: {self.QaDataDir}')
+            print(f'QA directory already exists: {self.QaDataDir}')
 
         if not self.os.path.exists(self.SessionPath):
             self.os.mkdir(self.SessionPath)
             self.os.mkdir(self.os.path.join(self.SessionPath, 'subs'))
             self.os.mkdir(self.os.path.join(self.SessionPath, 'imgs'))
-            print(f'QA Session Directory created: {self.SessionPath}')
+            print(f'QA session directory created: {self.SessionPath}')
+        else:
+            print(f'QA session directory created: {self.SessionPath}')
 
     def create_main_page(self):
         
