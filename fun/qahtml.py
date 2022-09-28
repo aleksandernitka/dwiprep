@@ -19,6 +19,11 @@ class QaHtml:
         import os
         from datetime import datetime as dt
         import shutil
+        # Import here as self to access it in methods
+        self.os = os
+        self.dt = dt
+        self.sh = shutil
+        
         # The QA directory where all QAs
         self.QaDataDir = QaDataDir
         # The list of subjects
@@ -29,10 +34,7 @@ class QaHtml:
         self.SessionDirName = self.SessionName.replace(' ', '').lower()
         self.SessionPath = self.os.path.join(self.QaDataDir, self.SessionDirName)
         
-        # Import here as self to access it in methods
-        self.os = os
-        self.dt = dt
-        self.sh = shutil
+        
 
         # check if the directory exists
         if not self.os.path.exists(self.QaDataDir):
