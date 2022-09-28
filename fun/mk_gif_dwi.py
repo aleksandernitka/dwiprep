@@ -25,8 +25,8 @@ if not exists(a.output):
     print(f'Could not locate {a.output}')
     exit(1)
 
-if not exists(join(a.output, 'png')):
-    mkdir(join(a.output, 'png'))
+if not exists(join(a.output, 'imgs')):
+    mkdir(join(a.output, 'imgs'))
 
 print('Extracting volumes...')
 # Make PNGs
@@ -38,18 +38,18 @@ for v in range(img.shape[-1]):
     ax.flat[0].imshow(img[:, :, a.slice, v].T, origin='lower', cmap='gray')
     ax.flat[1].imshow(img[:, a.slice, :, v].T, origin='lower', cmap='gray')
     ax.flat[2].imshow(img[a.slice, :, :, v].T, origin='lower', cmap='gray')
-    fig.savefig(join(a.output, f'png/tmp_img{1000+v}.png'))
+    fig.savefig(join(a.output, f'imgs/gibbs/tmp_img{1000+v}.png'))
     plt.close(fig)
 
 # Make GIF
 print('Compiling GIF...')
 images = [Image.open(join(a.output, 'png', i)) for i in ls(join(a.output, 'png')) if i.endswith('.png') and i.startswith('tmp_img')]
 image1 = images[0]
-image1.save(join(a.output, 'png', a.name + '.gif'), format = "GIF", save_all=True, append_images=images[1:], duration=1000, loop=0)
+image1.save(join(a.output, 'imgs', 'gibbs', a.name + '.gif'), format = "GIF", save_all=True, append_images=images[1:], duration=1000, loop=0)
 
 # Clean up
 print('Cleaning up...')
-for i in ls(join(a.output, 'png')):
+for i in ls(join(a.output, 'imgs', 'gibbs')):
     if i.endswith('.png') and i.startswith('tmp_img'):
-        remove(join(a.output, 'png', i))
+        remove(join(a.output, 'imgs', 'gibbs', i))
 

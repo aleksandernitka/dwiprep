@@ -73,4 +73,4 @@ for v in args.vols:
         ax.flat[5].imshow(img0[:,args.slice[1],:,v].T - img1[:,args.slice[1],:,v].T, cmap=args.cmap, origin='lower')
         ax.flat[8].imshow(img0[args.slice[2],:,:,v].T - img1[args.slice[2],:,:,v].T, cmap=args.cmap, origin='lower')
     plt.tight_layout()
-    fig.savefig(join(args.data, args.sub, 'png', f'{args.sub}_{args.fname}_v{v}.png'))
+    fig.savefig(join(args.data, args.sub, 'imgs', 'gibbs', f'{args.sub}_{args.fname}_v{v}.png'))
