@@ -9,19 +9,316 @@ from fun.stauslog import StatusLog
 from fun.qahtml import QaHtml
 
 """
-This file should be run only after the singularity image has been loaded (singularity/dwi_preproc.sif). 
-In such way it is ensured that the required software (dipy, fsl) are available. Use the following 
-command to initiate singularity image:
-
-singularity shell --bind /mnt:/mnt singularity/dwi_preproc.sif
-
-It will bind the /mnt folder to the singularity image. This is required for the script to be able to
-access the data.
-
 TODO:
-1. Run a single step instead of sequence of steps, if 1+ run all from 1st but if 1 run just this one
 2. datain and dataout does not make sense in terms of multiple stages; rename to rawdata and derivatives folder
 """
+
+class DwiPreprocessingClab():
+
+    # Main analysis class for the dwi preprocessing pipeline.
+    # Developed by Aleksander W. Nitka
+    # Relies on the following software:
+    # - FSL 6.0.5
+    # - DIPY 1.5.0
+    # - Fury 0.9.0
+    # - Scikit-Learn
+    # - Scikit-Image
+    # - Nilearn
+
+    def __init__(self, stage, mode, input, datain, dataout, threads, telegram=True, verbose=False, clean=True, copy=True):
+        
+        # Imports
+        from os import isfile
+        from os.path import join, exists
+        from os import mkdir
+        from os import listdir as ls
+        import subprocess as sp
+        from numpy import loadtxt
+        from numpy import savetxt
+
+        self.stage = stage
+        self.mode = mode
+        self.input = input
+        self.datain = datain
+        self.dataout = dataout
+        self.threads = threads
+        self.telegram = telegram
+        self.verbose = verbose
+        self.clean = clean
+        self.copy = copy
+
+        # Also mount some key dependencies for easy access
+        self.ls = ls
+        self.join = join
+        self.exists = exists
+        self.mkdir = mkdir
+        self.isfile = isfile
+        self.sp = sp
+        self.loadtxt = loadtxt
+        self.savetxt = savetxt
+
+    ########################################
+    # Checking methods #####################
+    ########################################
+
+    def check_inputs(self):
+        
+        # Check whether stage is correct
+        if self.stage not in [1,2,3,4, 'gibbs', 'p2s', 'topup', 'eddy']:
+            exit('Exit Error. Stage not recognised.')
+        else:
+            if self.verbose:
+                print('Stage recognised.')
+        
+        # Check whether mode is correct
+        if self.mode not in ['s', 'sub', 'l', 'list', 'a', 'all']:
+            exit('Exit Error. Mode not recognised.')
+        else:
+            if self.verbose:
+                print('Mode recognised.')
+
+        # check if input is correct
+        if self.input == None:
+            exit('Exit Error. Input not provided.')
+        else:
+            # TODO
+            if self.mode in ['s', 'sub']:
+                pass
+            elif self.mode in ['l', 'list']:
+                pass
+            elif self.mode in ['a', 'all']:
+                pass
+            else:
+                print()
+                exit('Input error. Input not recognised.')
+            
+    def check_telegram(self):
+        # Check if telegram setup file is present and whether the user wants to use it
+        
+        if exists('send_telegram.py') and self.telegram == True:
+            self.telegram = True
+            if self.verbose:
+                print('Telegram notifications are enabled')
+            from send_telegram import sendtel
+        else:
+            self.telegram = False
+            if self.verbose:
+                print('Telegram not available')
+    
+    def check_container(self):
+        # Check if we are using dipy and fsl from the containers
+        # When creating the container an empty file is created in the /opt folder
+        # so we can check if the container is loaded by checking if the file exists
+        
+        if not exists('/opt/dwiprep.txt'):
+            exit('Exit error. Not running in required singularity image. Please ensure that the singularity image is loaded')
+        else:
+            if self.verbose:
+                print('Singularity image loaded')
+
+    def check_subid(self, sub):
+        # Check if subject name contains sub- prefix
+        if not sub.beginswith('sub-'):
+            sub = 'sub-' + sub
+        return sub
+
+    def check_subject_indir(self, subid):
+        # Check if subject directory exists
+        if not self.exists(self.join(self.datain, subid)):
+            print('Subject directory not found')
+            return False
+        else:
+            if self.verbose:
+                print('Subject directory found')
+            return True
+
+    def check_tmp_dir(self):
+        # Simple method to check if tmp folder exists
+        # create it if it does not exist
+        from os.path import exists
+        from os import mkdir
+        if not exists('tmp'):
+            mkdir('tmp')
+            print('tmp folder created')
+        else:
+            if self.verbose:
+                print('tmp directory already exists')
+
+    def check_list_from_file(self):
+        # Should only be run if mode is list or l
+        # Return 1 is all is good, if fails return:
+        # Check if input exists, fail = 2
+        # Check if list is provided from a file, fail = 3
+        # Check if the input is a list of subjects, fail = 4
+        # If it is a list, check if the subjects are in the datain directory, fail = 5
+        # If it is a list, check if the subjects are in the dataout directory
+        
+        if not self.exists(self.input):
+            print(f'Input file not found: {self.input}')
+            return 2
+
+        if not self.isfile(self.input):
+            print(f'Input is not a file: {self.input}')
+            return 3
+
+        if self.input.endswith('.txt') or self.input.endswith('.csv') or self.input.endswith('.tsv'):
+            if self.verbose:
+                print('Input is a text-readable file')
+            
+            with open(self.input, 'r') as f:
+                subids = f.readlines()
+                subids = [subid.strip() for subid in subids]
+                print(f'List of subjects: {subids}')
+                for subid in subids:
+                    subid = self.check_subid(subid)
+                    if not self.exists(self.join(self.datain, subid)):
+                        print(f'Subject {subid} not found in datain directory')
+                        return 5
+                
+            # Now all data has been checked in datain directory. 
+        else:
+            print('Input is not a text-readable file')
+            return 4
+        
+        # If we get here, all is good
+        return 1
+    
+    ########################################
+    # Helping methods ######################
+    ########################################
+
+    def cp_rawdata(self, sub):
+        # Copy raw data to tmp folder
+        # Returns code:
+        # 1 - success, 
+        # 0 - failure, less than six files 
+        # 2 - failure, more than six files, 
+        # 3 - failure, no directory for subject    
+
+        # Copy raw data to tmp folder
+        # TODO change to self- bound methods
+        import shutil
+        from os.path import join
+        from os import listdir as ls
+        from os.path import exists
+        
+        # Check if tmp folder exists
+        self.check_tmp_dir()
+        
+        # Check subject ID
+        subid = self.check_subid(sub)
+
+        # Check if subject directory exists
+        if self.check_subject_indir(sub):
+            # Dir exists, then list it's contents 
+            bfs = [f for f in ls(join(self.datain, sub, 'dwi')) if '.DS_' not in f]
+            # List only the files I am iterested in
+            fsdwi = [f for f in bfs if '_SBRef_' not in f and '_ADC_' not in f and '_TRACEW_' not in f and '_ColFA_' not in f and '_FA_' not in f]
+            
+            # I expect six files exactly
+            if len(fsdwi) != 6:
+                print(f'{sub} has {len} dwi files in the rawdata folder {self.datain}. Please check.')
+                if len(fsdwi) < 6:
+                    return 0
+                else:
+                    return 2
+            
+            else:
+                # if we have 6 dwi files then copy them to tmp folder
+                # Create tmp folder for subject
+                if exists(join(self.datain, sub)) is False:
+                    mkdir(join(self.datain, sub))
+                    if self.verbose:
+                        print(f'{sub} tmp folder created')
+
+                # Copy files to tmp folder, for all files in fsdwi
+                for f in fsdwi:
+                    # Set name depending on the direction
+                    if '_AP_' in f:
+                        fn = f'{sub}_AP.{f.split(".")[-1]}'
+                    elif '_PA_' in f:
+                        fn = f'{sub}_PA.{f.split(".")[-1]}'
+                    # Copy file
+                    if self.verbose:
+                        print(f'cp {join(self.datain, sub, "dwi", f)} ---> {join(args.tmp, sub, fn)}')
+                    
+                    shutil.copy(join(self.datain, sub, 'dwi', f), join('tmp', sub, fn))
+
+                # All done return 1
+                return 1
+        else:
+            print(f'{subid} not found in {self.datain}')
+            return 3
+
+    ########################################
+    # DWI Preprocessing ####################
+    ########################################
+
+    def gibbs(self, sub):
+        # Run Gibbs ringing correction, for each subject
+
+        # Subid should have been checked
+        # Subject dir should have been checked
+        # tmp folder should have been checked
+        # raw data should have been checked
+
+        # copy raw data to tmp folder
+        o = self.cp_rawdata(sub) # will return status code
+
+        # if copied ok, then run gibbs
+        if o == 1:
+            if self.verbose:
+                print(f'Running gibbs ringing correction for {sub}')
+            
+            self.sp.run(f'dipy_gibbs_ringing {self.join("tmp", sub, sub + "_AP.nii")} {self.join("tmp", sub, sub + "_AP_gib.nii")}', shell=True)
+            self.sp.run(f'dipy_gibbs_ringing {self.join("tmp", sub, sub + "_PA.nii")} {self.join("tmp", sub, sub + "_PA_gib.nii")}', shell=True)
+
+            # Create plots for QA
+            # Create dirs to plot to
+            self.mkdir(self.join('tmp', sub, 'imgs'))
+            self.mkdir(self.join('tmp', sub, 'imgs', 'gibbs'))
+
+            # Plot AP RAW
+            self.sp.run(f'fun/gifdwi.py {self.join("tmp", sub, sub + "_AP.nii")} {self.join("tmp", sub, "imgs", "gibbs", sub + "_AP_raw.gif")} -t AP_RAW', shell=True)
+            # plot AP Gibbs
+            self.sp.run(f'fun/gifdwi.py {self.join("tmp", sub, sub + "_AP_gib.nii")} {self.join("tmp", sub, "imgs", "gibbs", sub + "_AP_gib.gif")} -t AP_GIBBS', shell=True)
+
+            # Plot AP Comparison
+            plot_i1 = self.join("tmp", sub, sub + "_AP.nii")
+            plot_i2 = self.join("tmp", sub, sub + "_AP_gib.nii")
+            self.sp.run(f'fun/compare.py {sub} {plot_i1} {plot_i2} \
+                {self.join("tmp", sub, "imgs", "gibbs", sub + "_ap_rawgib")}\
+                 -v 0 1 2 3 4 5 6 7 8 ', shell=True)
+
+            # Plot PA Comparison
+            plot_i1 = self.join("tmp", sub, sub + "_PA.nii")
+            plot_i2 = self.join("tmp", sub, sub + "_PA_gib.nii")
+            self.sp.run(f'fun/compare.py {sub} {plot_i1} {plot_i2} \
+                {self.join("tmp", sub, "imgs", "gibbs", sub + "_pa_rawgib")}\
+                 -v 0 1 2 3 4 ', shell=True)
+        else:
+            # Copy was not successful, return error code
+            return o
+
+        
+
+        # copy output to dataout folder
+
+
+        
+
+    def p2s(self):
+        # TODO
+        # Run patch2self
+        pass
+
+    def eddy(self):
+        # TODO
+        pass
+
+    def topup(self):
+        # TODO
+        pass
 
 args = argparse.ArgumentParser(description="DWI preprocessing pipeline script")
 args.add_argument('stage', help="Stage of the pipeline to run", choices=[1,2,3,4,5, 'gibbs', 'p2s', 'topup', 'eddy', 'qa'])
@@ -229,26 +526,4 @@ if a.stage in [1, 'gibbs']:
     log.ok('ALL', 'Gibbs de-ringing complete')
     if telegram:
         sendtel('Gibbs de-ringing complete')
-
-if process[1]:
-    """
-    2. Run Patch2Self denoising and create control plot for some example volumes
-    """ 
-    pass
-
-if process[2]:
-    """
-    3. Run TopUp estimation
-    """
-    pass
-
-if process[3]:
-    """
-    4. Run Eddy
-    """
-    pass
-if process[4]:
-    """
-    5. Run Quality Reports
-    """
-    pass
+    
