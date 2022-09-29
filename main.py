@@ -24,13 +24,12 @@ TODO:
 """
 
 args = argparse.ArgumentParser(description="DWI preprocessing pipeline script")
-args.add_argument('mode', choices=['s', 'sub', 'l', 'list', 'a', 'all'], help='Mode to run in, s or sub for a single subject id,\
-    l or list for a list of subject ids, a or all for all subject ids that are going to be found in the data directory')
-args.add_argument('datain', help='Path to data directory')
-args.add_argument('dataout', help='Path to output directory')
+args.add_argument('stage', help="Stage of the pipeline to run", choices=[1,2,3,4,5, 'gibbs', 'p2s', 'topup', 'eddy', 'qa'])
+args.add_argument('mode', help='Mode to run in, s or sub for a single subject id,\
+    l or list for a list of subject ids, a or all for all subject ids that are going to be found in the data directory', choices=['s', 'sub', 'l', 'list', 'a', 'all'])
+args.add_argument('datain', help='Path to data directory; either the rawdata or derivatives folder with all subs- inside')
+args.add_argument('dataout', help='Path to output directory; most likely the derivatives folder')
 args.add_argument('-i', '--input', help='Input: subject id if mode == s, path to list of subject ids if mode == l, do not use if mode == a', required=False)
-args.add_argument('-r', '--run', help='Where to start or pickup process from: 1. Gibbs de-ringing, 2. Patch2Self denoising, 3. TopUp estimaton,\
-    4. Eddy, 5.Quality Reports.', default=1, metavar='[1-5]', type=int, choices=[1, 2, 3, 4, 5])
 args.add_argument('-t', '--threads', help='Number of threads to use', type=int, default=-1)
 args.add_argument('-noclean', '--noclean', help='Do not clean tmp dir but move to dataout', action='store_true', default=False)
 args.add_argument('-nocopy', '--nocopy', help='Do not copy data to dataout', action='store_true', default=False)
@@ -41,8 +40,10 @@ a = args.parse_args()
 Perform sanity checks on input and locate required files
 """
 # Check if we are using dipy and fsl from the containers
+# When creating the container an empty file is created in the /opt folder
+# so we can check if the container is loaded by checking if the file exists
 """
-if not exists('/opt/miniconda-dwi/bin/dipy_info'):
+if not exists('/opt/dwiprep.txt'):
     print('Could not locate dipy_info, please ensure that the singularity image is loaded')
     exit(1)"""
 # TODO
@@ -121,16 +122,6 @@ Initialise QA stuff
 dwiqa = QaHtml('QAtest', subs, 'DWIPREP')
 
 """
-Establish processing pipeline based on input
-"""
-process = np.array([1,1,1,1,1])
-if a.run != 1:
-    # Set all previous steps to 0
-    # so they are not run
-    process[0:a.run-1] = 0
-
-log.info('ALL',f'Processing pipeline: {process}')
-"""
 Run processing pipeline, this is run for each subject at each step,
 that is, all subject are de-ringed, then all subjects are denoised, etc.
 this is because the output of one step is the input of the next step and
@@ -138,7 +129,7 @@ some of the steps are computationally expensive and paralellised and some
 (topup) are not.
 """
 
-if process[0]:
+if a.stage in [1, 'gibbs']:
     log.info('ALL', 'Running Gibbs de-ringing')
     for i, s in enumerate(subs):
         
