@@ -4,7 +4,8 @@ from fun.qahtml import QaHtml
 
 class DwiPreprocessingClab():
 
-    # Main analysis class for the dwi preprocessing pipeline.
+    # Main analysis class for the MRI processing pipeline
+    # Standarises some of the processing steps
     # Developed by Aleksander W. Nitka
     # Relies on the following software:
     # - FSL 6.0.5
@@ -14,18 +15,17 @@ class DwiPreprocessingClab():
     # - Scikit-Image 
     # - Nilearn 
 
-    def __init__(self, stage=None, mode=None, input=None, datain=None, dataout=None, \
+    def __init__(self, mode=None, input=None, datain=None, dataout=None, \
         qadir=None, threads=-1, telegram=True, verbose=False, clean=True, copy=True):
         
         # Imports
         from os import isfile
-        from os.path import join, exists, dirname, split, basename
-        from os import mkdir, makedirs, abspath, remove
+        from os.path import join, exists, dirname, split, basename, isfile, isdir
+        from os import mkdir, makedirs, remove
         from os import listdir as ls
         from dipy.io.image import load_nifti
         import subprocess as sp
 
-        self.stage = stage # stage of the pipeline to be run
         self.mode = mode # mode of the pipeline to be run, either single subject, list of subjects or all subjects in a directory
         self.input = input # input file or subject id to be processed
         self.datain = datain # input directory
@@ -44,6 +44,7 @@ class DwiPreprocessingClab():
         self.exists = exists
         self.mkdir = mkdir
         self.isfile = isfile
+        self.isdir = isdir
         self.remove = remove
         self.makedirs = makedirs
         self.dirname = dirname
@@ -54,6 +55,7 @@ class DwiPreprocessingClab():
     ########################################
     # Checking methods #####################
     ########################################
+
     # Below methods were prepared to ease the process of checking the data
     # before it gets processed further, to ensure that the data is in the
     # directory and all files are present.
@@ -64,14 +66,15 @@ class DwiPreprocessingClab():
     #   - second item is a string with the error message if the check failed
 
     def check_inputs(self):
-        
-        # Check whether stage is correct
-        if self.stage not in [1,2,3,4, 'gibbs', 'p2s', 'topup', 'eddy']:
-            return [False, 'Exit Error. Stage not recognised.']
-        else:
-            if self.verbose:
-                print('Stage recognised.')
-        
+        # This part of the code checks if the input data is present and valid
+        # For all three modes of operation, it checks if the input data is present
+        # then ends up with a list of subjects to be processed loaded as self.subs
+        # Furthermore, it returns True if all checks passed, False if any of them failed
+        # together with a message what went wrong
+
+        # load all subjects into the below list
+        self.subs = None
+
         # Check whether mode is correct
         if self.mode not in ['s', 'sub', 'l', 'list', 'a', 'all']:
             return [False, 'Exit Error. Mode not recognised.']
@@ -79,17 +82,57 @@ class DwiPreprocessingClab():
             if self.verbose:
                 print('Mode recognised.')
 
-        # check if input is correct
+        # check if input is correct, based on mode selected
         if self.input == None:
             return [False, 'Exit Error. Input not provided.']
         else:
-            # TODO
+            # For subject we do not need to check if the file exists
+            # That is done in the loop
             if self.mode in ['s', 'sub']:
-                pass
+                if self.verbose:
+                    print('Input recognised. Single subject mode.')
+                # Check if subject name contains sub- prefix
+                # make a list of inputs from one input, so all modes
+                # can be treated the same way
+                self.subs = [self.check_subid(self.input)]
+                return [True, 'Input recognised. Single subject mode.']
+            
+            # For the list mode we need to check if the file exists
             elif self.mode in ['l', 'list']:
-                pass
+                if self.verbose:
+                    print('Input recognised. List of subjects mode.')
+                if self.isfile(self.input):
+                    # DO not need to check if the file is empty, do it at the loop level
+                    # But read the file in and make a list of inputs
+                    # Read the file and make a list of inputs
+                    try:
+                        with open(self.input, 'r') as f:
+                            self.subs = f.readlines()
+                        return [True, 'Input recognised and loaded. List of subjects mode.']
+                    except:
+                        return [False, 'Exit Error. Input file not readable.']
+                else:
+                    return [False, 'Exit Error. Input file not found.']
+            
+            # all mode needs a valid directory
             elif self.mode in ['a', 'all']:
-                pass
+                if self.verbose:
+                    print('Input recognised. All subjects mode.')
+
+                # Does the indir exist at all? If not - exit
+                if not self.isdir(self.input):
+                    return [False, f'Exit Error. Input directory not found {self.datain}.']
+                else:
+                    # Now, do we have any subjects in the directory? If not - exit
+                    allsubs = [f for f in self.ls(self.datain) if f.startswith('sub-') and self.isdir(self.join(self.datain, f))]
+                    if len(allsubs) == 0:
+                        return [False, f'Exit Error. No subjects found in the input directory {self.datain}.']
+                    else:
+                        # set as input
+                        self.subs = allsubs
+                        if self.verbose:
+                            print(f'Found {len(allsubs)} subjects in the input directory: {self.datain}')
+                        return [True, f'Input recognised. All subjects mode. Found {len(allsubs)} subjects in the input directory {self.datain}.']
             else:
                 return [False, 'Exit Error. Mode not recognised.']
     
@@ -173,7 +216,7 @@ class DwiPreprocessingClab():
 
     def check_list_from_file(self):
         # TODO - what this method should do, should it load the data to a list of subs?
-        
+
         # Should only be run if mode is list or l
         # Return 1 is all is good, if fails return:
         # Check if input exists, fail = 2
@@ -209,28 +252,55 @@ class DwiPreprocessingClab():
         # If we get here, all is good
         return 1
     
-    def perform_subject_checks(self, sub):
-        # take above methods and pack them into a single method for a subject
-        # it will return a list: [True/False, Problem description]
-        # if True, all is good
+    def check_start(self):
 
-        # Check if tmp folder exists, create if not
-        self.check_tmp_dir()
-        # Subid should have been checked
-        sub = self.check_subid(sub)
-        # Subject dir should have been checked
-        if not self.check_subject_indir(sub):
-            return [False, f'Subject checks failed: subject {sub} not found in datain directory {self.datain}']
-        # tmp folder should have been checked
-        self.check_tmp_subdir(sub)
+        # Performs all neccessary checks before starting the processing
+        # This should be step 1 in the main script, ALWAYS
 
-        return [True, f'Subject checks passed: subject {sub}']
+        # Check if we are using the correct singularity image
+        s, m = self.check_container()
+        if not s:
+            return [s, m]
+        else:
+            # TODO - log the message
+            pass
+        
+        # Check if the input is correct
+        s, m = self.check_input()
+        if not s:
+            return [s, m]
+        else:
+            # TODO - log the message
+            pass
+        
+        # Check the tmp dir
+        s, m = self.check_tmp_dir()
+        if not s:
+            return [s, m]
+        else:
+            # TODO - log the message
+            pass
 
-    def perform_list_checks(self):
+        # Check telegram - no return value
+        self.check_telegram()
+        
+        return [True, 'All checks passed. Starting processing']
+
+    def check_sub(self, sub):
         # TODO
-        # When providing a list of subjects, we need to check if all subjects are present in the datain directory
-        # and if they are not present in the dataout directory
-        # This method will return a list of subjects that are ready to be processed
+        # Execute all checks for a subject
+        # before running anything for that subject
+
+        # Check if subject directory exists in indir
+        # Check if subject directory exists in outdir
+        # Check if subject directory exists in tmp/sub
+
+        pass
+
+    def check_list(self):
+        # TODO
+        # Execute all checks for a list of subjects
+        # before running anything for that subject
         pass
 
     ########################################
@@ -304,10 +374,12 @@ class DwiPreprocessingClab():
             if self.verbose:
                 print('QA not requested')
             self.runqa = False
+            return [False, 'QA not requested']
         else:
             if self.exists(self.qadir):
                 if self.verbose:
                     print(f'QA directory found: {self.qadir}')
+                    # We may need to create the sub and plots dirs, so no return yet
             else:
                 print(f'QA directory not found: {self.qadir}')
                 createqadir = input('Do you want to try create it? [y/n]: ')
@@ -315,6 +387,7 @@ class DwiPreprocessingClab():
                     try:
                         self.makedirs(self.qadir)
                         print(f'QA directory created: {self.qadir}')
+                        # We may need to create the sub and plots dirs, so no return yet
                     except:
                         print(f'Could not create QA directory: {self.qadir}.')
                         createinhere = input('Do you want to create it in the current directory? [y/n]: ')
@@ -324,19 +397,23 @@ class DwiPreprocessingClab():
                                 # take last dirname from the path and try to create it
                                 self.mkdir(self.split(self.qadir)[-1])
                                 self.qadir = self.abspath(self.split(self.qadir)[-1])
+                                print(f'QA directory created: {self.qadir}')
 
                             except:
-                                print('Could not create qa directory in current directory. QA will not be run.')
+                                # print('Could not create qa directory in current directory. QA will not be run.')
                                 self.runqa = False
                                 self.qadir = False
+                                return [False, 'Could not create qa directory in current directory. QA will not be run.']
                         else:
-                            print('No dir for QA so QA will not be run.')
+                            # print('No dir for QA so QA will not be run.')
                             self.runqa = False
                             self.qadir = False
+                            return [False, 'No dir for QA so QA will not be run.']
                 else:
-                    print('No dir for QA so QA will not be run.')
+                    # print('No dir for QA so QA will not be run.')
                     self.runqa = False
                     self.qadir = False
+                    return [False, 'No dir for QA so QA will not be run.']
 
             # DWI structure
             if dwi:
@@ -357,6 +434,7 @@ class DwiPreprocessingClab():
                     print('QA will not be run.')
                     self.runqa = False
                     self.qadir = False
+                    return [False, 'Could not create qa directory in current directory. QA will not be run.']
                 
                 # QADIR --> dwi --> plots
                 try:
@@ -370,6 +448,7 @@ class DwiPreprocessingClab():
                     print('QA will not be run.')
                     self.runqa = False
                     self.qadir = False
+                    return [False, 'Could not create qa directory in current directory. QA will not be run.']
                 
                 # QADIR --> dwi --> plots --> gibbs, eddy, topup, p2s
                 for m in ['gibbs', 'p2s', 'topup', 'eddy']:
@@ -384,6 +463,7 @@ class DwiPreprocessingClab():
                         print('QA will not be run.')
                         self.runqa = False
                         self.qadir = False
+                        return [False, 'Could not create qa directory in current directory. QA will not be run.']
                 
                 # QADIR --> dwi --> subs
                 try:
@@ -397,6 +477,10 @@ class DwiPreprocessingClab():
                     print('QA will not be run.')
                     self.runqa = False
                     self.qadir = False
+                    return [False, 'Could not create qa directory in current directory. QA will not be run.']
+
+            # if we got here, we are good to go
+            return [True, 'QA directory found and created if needed']
 
     def make_sub_qa_html(self, sub):
         # TODO
@@ -636,7 +720,7 @@ class DwiPreprocessingClab():
     # DWI Preprocessing ####################
     ########################################
 
-    def gibbs(self, sub):
+    def dipygibbs(self, sub):
         # Run Gibbs ringing correction, for each subject
 
         # Perform subject checks
@@ -676,15 +760,63 @@ class DwiPreprocessingClab():
 
         return [1, f'Gibbs ringing correction for {sub} was successful']
 
-    def p2s(self, sub):
+    def dipyp2s(self, sub):
         # TODO
         # Run patch2self
         pass
 
-    def eddy(self, sub):
+    def fsleddy(self, sub):
         # TODO
         pass
 
-    def topup(self, sub):
+    def fsltopup(self, sub):
         # TODO
         pass
+
+    ########################################
+    # TopLevel Functions ###################
+    ########################################
+    # These are the functions that are called from the main script
+    # so user can evoke those without worrying about the details
+    # Note that, for example dipygibbs is called from the main script
+    # but it is not a top level function, because it is called from
+    # the gibbs function, which is a top level function -- function
+    # gibbs will take care of all the checks and logging, and then  
+    # call dipygibbs to do the actual work
+
+    def gibbs(self):
+        
+        # Perform initial checks
+        [s, m] = self.check_start()
+        if not s:
+            print(m)
+            exit(1)
+        else:
+            print(m)
+        
+        # Check if QA required
+        [s, m] = self.check_qa(dwi=True)
+        if not s:
+            # we will not run QA, but still can run the processing
+            print(m)
+            no_qa_continue = input('Do you want to continue without QA? (y/n): ')
+            if no_qa_continue == 'y':
+                print('Continuing without QA')
+            if no_qa_continue == 'n':
+                print('Exiting')
+                exit(1)
+            else:
+                print('Invalid input, exiting')
+                exit(1)
+        else:
+            print(m)
+        
+        # Check if we have subjects to process
+        print(f'{len(self.subs)} subjects to process')
+
+        # TODO dump the list of subjects to process to a file
+
+        # Loop over subjects
+        for sub in self.subs:
+            pass
+
