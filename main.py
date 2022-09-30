@@ -1,17 +1,6 @@
-import argparse
-from os import listdir as ls
-from os import mkdir
-from os.path import join, exists
-import subprocess as sp
-import numpy as np # not used to calulcate but to read text file
-
 from fun.stauslog import StatusLog
 from fun.qahtml import QaHtml
 
-"""
-TODO:
-2. datain and dataout does not make sense in terms of multiple stages; rename to rawdata and derivatives folder
-"""
 
 class DwiPreprocessingClab():
 
@@ -21,65 +10,78 @@ class DwiPreprocessingClab():
     # - FSL 6.0.5
     # - DIPY 1.5.0
     # - Fury 0.9.0
-    # - Scikit-Learn
-    # - Scikit-Image
-    # - Nilearn
+    # - Scikit-Learn 
+    # - Scikit-Image 
+    # - Nilearn 
 
-    def __init__(self, stage, mode, input, datain, dataout, threads, telegram=True, verbose=False, clean=True, copy=True):
+    def __init__(self, stage=None, mode=None, input=None, datain=None, dataout=None, \
+        qadir=None, threads=-1, telegram=True, verbose=False, clean=True, copy=True):
         
         # Imports
         from os import isfile
-        from os.path import join, exists
-        from os import mkdir
+        from os.path import join, exists, dirname, split, basename
+        from os import mkdir, makedirs, abspath, remove
         from os import listdir as ls
+        from dipy.io.image import load_nifti
         import subprocess as sp
-        from numpy import loadtxt
-        from numpy import savetxt
 
-        self.stage = stage
-        self.mode = mode
-        self.input = input
-        self.datain = datain
-        self.dataout = dataout
-        self.threads = threads
-        self.telegram = telegram
-        self.verbose = verbose
-        self.clean = clean
-        self.copy = copy
+        self.stage = stage # stage of the pipeline to be run
+        self.mode = mode # mode of the pipeline to be run, either single subject, list of subjects or all subjects in a directory
+        self.input = input # input file or subject id to be processed
+        self.datain = datain # input directory
+        self.dataout = dataout # output directory
+        self.qadir = qadir # quality assurance directory
+        self.threads = threads # number of threads to be used, when possible to set
+        self.telegram = telegram # whether to send telegram notifications
+        self.verbose = verbose # whether to print verbose messages
+        self.clean = clean # whether to clean up the tmp folder after processing
+        self.copy = copy # whether to copy the data from tmp to the dataout folder
 
         # Also mount some key dependencies for easy access
         self.ls = ls
         self.join = join
+        self.split = split
         self.exists = exists
         self.mkdir = mkdir
         self.isfile = isfile
+        self.remove = remove
+        self.makedirs = makedirs
+        self.dirname = dirname
+        self.basename = basename
         self.sp = sp
-        self.loadtxt = loadtxt
-        self.savetxt = savetxt
+        self.load_nifti = load_nifti
 
     ########################################
     # Checking methods #####################
     ########################################
+    # Below methods were prepared to ease the process of checking the data
+    # before it gets processed further, to ensure that the data is in the
+    # directory and all files are present.
+    # Appropriate checks can minimise the risk of errors and crashes
+    #
+    # All check_ methods that are critical and cannot correct it should return a list with two items:
+    #   - first item is a boolean value, True if the check passed, False if it failed
+    #   - second item is a string with the error message if the check failed
 
     def check_inputs(self):
         
         # Check whether stage is correct
         if self.stage not in [1,2,3,4, 'gibbs', 'p2s', 'topup', 'eddy']:
-            exit('Exit Error. Stage not recognised.')
+            return [False, 'Exit Error. Stage not recognised.']
         else:
             if self.verbose:
                 print('Stage recognised.')
         
         # Check whether mode is correct
         if self.mode not in ['s', 'sub', 'l', 'list', 'a', 'all']:
-            exit('Exit Error. Mode not recognised.')
+            return [False, 'Exit Error. Mode not recognised.']
         else:
             if self.verbose:
                 print('Mode recognised.')
 
         # check if input is correct
         if self.input == None:
-            exit('Exit Error. Input not provided.')
+            return [False, 'Exit Error. Input not provided.']
         else:
             # TODO
             if self.mode in ['s', 'sub']:
@@ -89,17 +91,17 @@ class DwiPreprocessingClab():
             elif self.mode in ['a', 'all']:
                 pass
             else:
-                print()
-                exit('Input error. Input not recognised.')
-            
+                return [False, 'Exit Error. Mode not recognised.']
+    
     def check_telegram(self):
         # Check if telegram setup file is present and whether the user wants to use it
-        
+        # Not critical so it does not return anything
         if exists('send_telegram.py') and self.telegram == True:
             self.telegram = True
             if self.verbose:
                 print('Telegram notifications are enabled')
             from send_telegram import sendtel
+            self.tg = sendtel() # use self.tg('msg') to send messages
         else:
             self.telegram = False
             if self.verbose:
@@ -111,40 +113,67 @@ class DwiPreprocessingClab():
         # so we can check if the container is loaded by checking if the file exists
         
         if not exists('/opt/dwiprep.txt'):
-            exit('Exit error. Not running in required singularity image. Please ensure that the singularity image is loaded')
+            return [False, 'Exit error. Not running in required singularity image. Please ensure that the singularity image is loaded']
         else:
             if self.verbose:
                 print('Singularity image loaded')
+            return [True, 'Singularity image loaded']
 
     def check_subid(self, sub):
         # Check if subject name contains sub- prefix
+        # Can fix so no return value
         if not sub.beginswith('sub-'):
             sub = 'sub-' + sub
         return sub
 
-    def check_subject_indir(self, subid):
-        # Check if subject directory exists
-        if not self.exists(self.join(self.datain, subid)):
-            print('Subject directory not found')
-            return False
+    def check_subject_indir(self, sub):
+        # Check if subject directory exists in indir
+        if not self.exists(self.join(self.datain, sub)):
+            print(f'Subject {sub} directory not found in {self.datain}')
+            return [False, f'Subject {sub} directory not found in {self.datain}']
         else:
             if self.verbose:
-                print('Subject directory found')
-            return True
+                print('Subject {sub} directory found in {self.datain}')
+            return [True, f'Subject {sub} directory found in {self.datain}']
 
     def check_tmp_dir(self):
+        # Run once at the begging of each processing stage
         # Simple method to check if tmp folder exists
-        # create it if it does not exist
-        from os.path import exists
-        from os import mkdir
-        if not exists('tmp'):
-            mkdir('tmp')
-            print('tmp folder created')
+        # create it if it does not exist, but do not delete it
+        # AND if mkdir fails, return False
+
+        if not self.exists('tmp'):
+            try:
+                self.mkdir('tmp')
+                print('tmp folder created')
+                return [True, 'tmp folder created']
+            except:
+                return [False, 'Exit error. Could not create tmp folder']
         else:
             if self.verbose:
                 print('tmp directory already exists')
+            return [True, 'tmp directory already exists']
+
+    def check_tmp_subdir(self, sub):
+        # Check if subject directory exists in tmp
+        # Create it if it does not exist
+        # AND if mkdir fails, return False
+        if not self.exists(self.join('tmp', sub)):
+            try:
+                self.mkdir(self.join('tmp', sub))
+                if self.verbose:
+                    print(f'Subject {sub} directory created in tmp')
+                return [True, f'Subject {sub} directory created in tmp']
+            except:
+                return [False, f'Exit error. Could not create subject {sub} directory in tmp']
+        else:
+            if self.verbose:
+                print(f'Subject {sub} directory found in tmp')
+            return [True, f'Subject {sub} directory found in tmp']
 
     def check_list_from_file(self):
+        # TODO - what this method should do, should it load the data to a list of subs?
+        
         # Should only be run if mode is list or l
         # Return 1 is all is good, if fails return:
         # Check if input exists, fail = 2
@@ -155,11 +184,11 @@ class DwiPreprocessingClab():
         
         if not self.exists(self.input):
             print(f'Input file not found: {self.input}')
-            return 2
+            return [False, f'Input file not found: {self.input}']
 
         if not self.isfile(self.input):
             print(f'Input is not a file: {self.input}')
-            return 3
+            return [False, f'Input is not a file: {self.input}']
 
         if self.input.endswith('.txt') or self.input.endswith('.csv') or self.input.endswith('.tsv'):
             if self.verbose:
@@ -171,9 +200,6 @@ class DwiPreprocessingClab():
                 print(f'List of subjects: {subids}')
                 for subid in subids:
                     subid = self.check_subid(subid)
-                    if not self.exists(self.join(self.datain, subid)):
-                        print(f'Subject {subid} not found in datain directory')
-                        return 5
                 
             # Now all data has been checked in datain directory. 
         else:
@@ -183,72 +209,428 @@ class DwiPreprocessingClab():
         # If we get here, all is good
         return 1
     
+    def perform_subject_checks(self, sub):
+        # take above methods and pack them into a single method for a subject
+        # it will return a list: [True/False, Problem description]
+        # if True, all is good
+
+        # Check if tmp folder exists, create if not
+        self.check_tmp_dir()
+        # Subid should have been checked
+        sub = self.check_subid(sub)
+        # Subject dir should have been checked
+        if not self.check_subject_indir(sub):
+            return [False, f'Subject checks failed: subject {sub} not found in datain directory {self.datain}']
+        # tmp folder should have been checked
+        self.check_tmp_subdir(sub)
+
+        return [True, f'Subject checks passed: subject {sub}']
+
+    def perform_list_checks(self):
+        # TODO
+        # When providing a list of subjects, we need to check if all subjects are present in the datain directory
+        # and if they are not present in the dataout directory
+        # This method will return a list of subjects that are ready to be processed
+        pass
+
     ########################################
     # Helping methods ######################
     ########################################
 
     def cp_rawdata(self, sub):
         # Copy raw data to tmp folder
-        # Returns code:
-        # 1 - success, 
-        # 0 - failure, less than six files 
-        # 2 - failure, more than six files, 
-        # 3 - failure, no directory for subject    
+        # Returns True or False depending on success and message for logging
 
-        # Copy raw data to tmp folder
-        # TODO change to self- bound methods
         import shutil
-        from os.path import join
-        from os import listdir as ls
-        from os.path import exists
-        
-        # Check if tmp folder exists
-        self.check_tmp_dir()
-        
-        # Check subject ID
-        subid = self.check_subid(sub)
 
-        # Check if subject directory exists
-        if self.check_subject_indir(sub):
-            # Dir exists, then list it's contents 
-            bfs = [f for f in ls(join(self.datain, sub, 'dwi')) if '.DS_' not in f]
-            # List only the files I am iterested in
-            fsdwi = [f for f in bfs if '_SBRef_' not in f and '_ADC_' not in f and '_TRACEW_' not in f and '_ColFA_' not in f and '_FA_' not in f]
-            
-            # I expect six files exactly
-            if len(fsdwi) != 6:
-                print(f'{sub} has {len} dwi files in the rawdata folder {self.datain}. Please check.')
-                if len(fsdwi) < 6:
-                    return 0
-                else:
-                    return 2
-            
+        # get all dwi files for pp
+        bfs = [f for f in ls(join(self.datain, sub, 'dwi')) if '.DS_' not in f]
+
+        # get all _AP_ files
+        fsdwi = [f for f in bfs if '_SBRef_' not in f and '_ADC_' not in f and '_TRACEW_' not in f and '_ColFA_' not in f and '_FA_' not in f]
+        if len(fsdwi) != 6:
+            print(f'{sub} has {len(fsdwi)} dwi files')
+            return [False, f'Number of dwi files is not 6, but {len(fsdwi)}']
+
+        # cp dwi to tmp
+        for f in fsdwi:
+            if '_AP_' in f:
+                fn = f'{sub}_AP.{f.split(".")[-1]}'
+                if self.verbose:
+                    print(f'cp {self.join(self.datain, sub, "dwi", f)} ---> {self.join("tmp", sub, fn)}')
+                shutil.copy(self.join(self.datain, sub, "dwi", f), self.join("tmp", sub, fn))
+
+            elif '_PA_' in f:
+                fn = f'{sub}_PA.{f.split(".")[-1]}'
+                if self.verbose:
+                    print(f'cp {self.join(self.datain, sub, "dwi", f)} ---> {self.join("tmp", sub, fn)}')
+                shutil.copy(self.join(self.datain, sub, "dwi", f), self.join("tmp", sub, fn))
             else:
-                # if we have 6 dwi files then copy them to tmp folder
-                # Create tmp folder for subject
-                if exists(join(self.datain, sub)) is False:
-                    mkdir(join(self.datain, sub))
-                    if self.verbose:
-                        print(f'{sub} tmp folder created')
+                pass
+            
+        return [True, f'Copied raw data for {sub} to tmp folder']
 
-                # Copy files to tmp folder, for all files in fsdwi
-                for f in fsdwi:
-                    # Set name depending on the direction
-                    if '_AP_' in f:
-                        fn = f'{sub}_AP.{f.split(".")[-1]}'
-                    elif '_PA_' in f:
-                        fn = f'{sub}_PA.{f.split(".")[-1]}'
-                    # Copy file
-                    if self.verbose:
-                        print(f'cp {join(self.datain, sub, "dwi", f)} ---> {join(args.tmp, sub, fn)}')
-                    
-                    shutil.copy(join(self.datain, sub, 'dwi', f), join('tmp', sub, fn))
+    def cp_derdata(self, sub, files):
+        # TODO
+        # Copy derived data to tmp folder
+        # Specify file to copy, without the 'sub-00000_' prefix
+        pass
+    
+    ########################################
+    # QA methods ###########################
+    ########################################
+    # Set of QA Methods to check if the data is good enough.
+    # Should begin with check_qa method that will set the stage for the rest of the methods
+    # Should return True or False depending on the success of the QA
 
-                # All done return 1
-                return 1
+    def check_qa(self, dwi):
+        
+        # set of common methods for all QA things;
+        # Check if the entire path exist to the qa folder
+        # try to create it if not, but if that fails, try to create qadir in the current directory
+        # but ask user if they want to do that, if not then set self.qadir to False and do not run QA
+
+        # Then try to create all the other folders in the qadir; subs and plots. The latter should be created
+        # with all the steps as subdirs.
+        
+        # If all is good this will stay True, if not it will be set to False
+        # Furthermore, this is the first time this is set, so it has to be run to 
+        # enable QA at all
+
+        self.runqa = True
+
+        if self.qadir is None:
+            # QA not requested
+            if self.verbose:
+                print('QA not requested')
+            self.runqa = False
         else:
-            print(f'{subid} not found in {self.datain}')
-            return 3
+            if self.exists(self.qadir):
+                if self.verbose:
+                    print(f'QA directory found: {self.qadir}')
+            else:
+                print(f'QA directory not found: {self.qadir}')
+                createqadir = input('Do you want to try create it? [y/n]: ')
+                if createqadir == 'y':
+                    try:
+                        self.makedirs(self.qadir)
+                        print(f'QA directory created: {self.qadir}')
+                    except:
+                        print(f'Could not create QA directory: {self.qadir}.')
+                        createinhere = input('Do you want to create it in the current directory? [y/n]: ')
+                        if createinhere == 'y':
+                            try:
+                                # this will create directory in the current directory
+                                # take last dirname from the path and try to create it
+                                self.mkdir(self.split(self.qadir)[-1])
+                                self.qadir = self.abspath(self.split(self.qadir)[-1])
+
+                            except:
+                                print('Could not create qa directory in current directory. QA will not be run.')
+                                self.runqa = False
+                                self.qadir = False
+                        else:
+                            print('No dir for QA so QA will not be run.')
+                            self.runqa = False
+                            self.qadir = False
+                else:
+                    print('No dir for QA so QA will not be run.')
+                    self.runqa = False
+                    self.qadir = False
+
+            # DWI structure
+            if dwi:
+                print('Requested to QA DWI data')
+                # this indicates we are running QA on dwi data
+                # check if the folder structure is correct for the data
+                # That is:
+                
+                # QADIR --> DWI
+                try:
+                    if not self.exists(self.join(self.qadir, 'dwi')):
+                        self.mkdir(self.join(self.qadir, 'dwi'))
+                    else:
+                        if self.verbose:
+                            print(f'QA directory found: {self.join(self.qadir, "dwi")}')
+                except:
+                    print(f'Could not create QA directory: {self.join(self.qadir, "dwi")}.')
+                    print('QA will not be run.')
+                    self.runqa = False
+                    self.qadir = False
+                
+                # QADIR --> dwi --> plots
+                try:
+                    if not self.exists(self.join(self.qadir, 'dwi', 'plots')):
+                        self.mkdir(self.join(self.qadir, 'dwi', 'plots'))
+                    else:
+                        if self.verbose:
+                            print(f'QA directory found: {self.join(self.qadir, "dwi", "plots")}')
+                except:
+                    print(f'Could not create QA directory: {self.join(self.qadir, "dwi", "plots")}.')
+                    print('QA will not be run.')
+                    self.runqa = False
+                    self.qadir = False
+                
+                # QADIR --> dwi --> plots --> gibbs, eddy, topup, p2s
+                for m in ['gibbs', 'p2s', 'topup', 'eddy']:
+                    try:
+                        if not self.exists(self.join(self.qadir, 'dwi', 'plots', m)):
+                            self.mkdir(self.join(self.qadir, 'dwi', 'plots', m))
+                        else:
+                            if self.verbose:
+                                print(f'QA directory found: {self.join(self.qadir, "dwi", "plots", m)}')
+                    except:
+                        print(f'Could not create QA directory: {self.join(self.qadir, "dwi", "plots", m)}.')
+                        print('QA will not be run.')
+                        self.runqa = False
+                        self.qadir = False
+                
+                # QADIR --> dwi --> subs
+                try:
+                    if not self.exists(self.join(self.qadir, 'dwi', 'subs')):
+                        self.mkdir(self.join(self.qadir, 'dwi', 'subs'))
+                    else:
+                        if self.verbose:
+                            print(f'QA directory found: {self.join(self.qadir, "dwi", "subs")}')
+                except:
+                    print(f'Could not create QA directory: {self.join(self.qadir, "dwi", "subs")}.')
+                    print('QA will not be run.')
+                    self.runqa = False
+                    self.qadir = False
+
+    def make_sub_qa_html(self, sub):
+        # TODO
+        # Make html page for a subject
+        # This sets up the html page and should be run before the qa for a single subject
+        # as it sets up the html page that will then be read by the qa methods
+        # Use self.qadir
+        pass
+
+    def make_dwi_qa_html(self):
+        # TODO
+        # Make html page for dwi data that links to all subs
+        # Use self.qadir
+        pass
+
+    def run_qa_gibbs(self, sub):
+        # TODO
+        # Run QA for gibbs ringing
+        # Use self.qadir
+        pass
+
+    ########################################
+    # Plotting methods #####################
+    ########################################
+
+    def gif_dwi_4d(self, image, gif, title, slice=55, fdur=500):
+
+        # Create a gif of a 4D image
+        # It will go through the 4th dimension and create a gif, 
+        # Plane is set as axial, slice is set to 55 by default
+        # image: path to 4D image
+        # gif: path to gif
+        # title: title of gif
+        # fdur: frame duration in ms
+        # slice: slice to show
+
+
+        import matplotlib.pyplot as plt
+        from PIL import Image
+
+        # TODO - SAVE to QA dir directly
+        # Make gif of dwi data
+        # Use self.qadir
+        try:
+            img, __ = self.load_nifti(image)
+        except:
+            print(f'Could not load {image}')
+            return [False, 'cannot load image']
+
+        # Need path to dump tmp images
+        tmpDir = self.dirname(gif)
+
+        # make gif
+        if self.verbose:
+            print(f'Extracting image slices from {image} and saving to {tmpDir}')
+        for v in range(img.shape[-1]):
+            fig, ax = plt.subplots(1,3, figsize=(15,5), subplot_kw=dict(xticks=[], yticks=[]))
+            fig.subplots_adjust(hspace=0.25, wspace=0.25)
+            fig.suptitle(f'{title}', fontsize=16)
+            plt.tight_layout()
+            ax.flat[0].imshow(img[:, :, slice, v].T, origin='lower', cmap='gray')
+            ax.flat[1].imshow(img[:, slice, :, v].T, origin='lower', cmap='gray')
+            ax.flat[2].imshow(img[slice, :, :, v].T, origin='lower', cmap='gray')
+            
+            fig.savefig(self.join(tmpDir, f'tmp_img{1000+v}.png'))
+            plt.close(fig)
+
+        # Make GIF
+        if self.verbose:
+            print(f'Making GIF from images in {tmpDir} and saving to {gif}')
+        try:
+            images = [Image.open(self.join(tmpDir, i)) for i in ls(self.join(tmpDir)) if i.endswith('.png') and i.startswith('tmp_img')]
+            image1 = images[0]
+            image1.save(self.join(gif), format = "GIF", save_all=True, append_images=images[1:], duration=fdur, loop=0)
+        except:
+            print(f'Could not make GIF {gif} from images in {tmpDir}')
+            return [False, f'cannot make gif {gif}']
+        
+        # Clean up
+        if self.verbose:
+            print(f'Cleaning up {tmpDir}')
+        try:
+            for i in self.ls(self.join(tmpDir)):
+                if i.endswith('.png') and i.startswith('tmp_img'):
+                    self.remove(self.join(tmpDir, i))
+        except:
+            print(f'Could not clean up {tmpDir}')
+            return [False, f'could not clean up tmpDir for {gif}']
+        return [True, f'GIF created: {gif}']
+
+    def plt_compare_4d(self, file1, file2, sub=None, vols=[0], slice=[50,50,50], \
+        cmap='gray', compare='sub'):
+
+        # Plotting function that compares two 4D nifti files
+        # file1 and file2 are the full paths to the files
+        # sub is the subject ID
+        # vols is a list of volumes to plot as a list of ints
+        # slice is a list of slices to plot as a list of ints
+        # cmap is the colormap to use
+        # compare is either 'sub' or 'diff':
+        #   if 'sub' then the two files are subtracted from each other
+        #   if 'diff' then the two files are plotted side by side
+
+        import matplotlib.pyplot as plt
+        import numpy as np
+        # Make plot of comparison between raw and processed data
+        # TODO Use self.qadir
+        
+        if sub is None:
+            # if no sub is specified, use the basename of the 1st file
+            sub = self.split(file1)[-1].split('_')[0]
+
+        try:
+            # Load images
+            img1, __ = self.load_nifti(file1)
+            img2, __ = self.load_nifti(file2)
+        except:
+            print(f'Unable to load images for comparison: {file1} and {file2}')
+            return [False, f'Unable to load images for comparison: {file1} and {file2}']
+
+        # Make plot
+        # modify the file paths to get the plot titles
+        img1_name = '_'.join(self.basename(file1).split('.')[0].split('_')[1:])
+        img2_name = '_'.join(self.basename(file1).split('.')[0].split('_')[1:])
+
+        for v in vols:
+            # plotting for the images and difference
+            fig, ax = plt.subplots(3,3, \
+                subplot_kw = {'xticks':[], 'yticks':[]}, \
+                sharex=True, sharey=True)
+            fig.suptitle(f'{sub} v {v}', fontsize=16)
+            
+            # Order of plots goes row by row, plot each plane
+            # Image 1
+            ax.flat[0].imshow(img1[:,:,slice[0],v].T, cmap=cmap, origin='lower')
+            ax.flat[0].set_title(img1_name)
+            ax.flat[3].imshow(img1[:,slice[1],:,v].T, cmap=cmap, origin='lower')
+            ax.flat[6].imshow(img1[slice[2],:,:,v].T, cmap=cmap, origin='lower')
+
+            # Image 2
+            ax.flat[1].imshow(img2[:,:,slice[0],v].T, cmap=cmap, origin='lower')
+            ax.flat[1].set_title(img2_name)
+            ax.flat[4].imshow(img2[:,slice[1],:,v].T, cmap=cmap, origin='lower')
+            ax.flat[7].imshow(img1[slice[2],:,:,v].T, cmap=cmap, origin='lower')
+
+            if compare == 'res':
+                ax.flat[2].imshow(np.sqrt(img1[:,:,slice[0],v].T - img2[:,:,slice[0],v].T)**2, cmap=cmap, origin='lower')
+                ax.flat[2].set_title('Difference')
+                ax.flat[5].imshow(np.sqrt(img1[:,slice[1],:,v].T - img2[:,slice[1],:,v].T)**2, cmap=cmap, origin='lower')
+                ax.flat[8].imshow(np.sqrt(img1[slice[2],:,:,v].T - img2[slice[2],:,:,v].T)**2, cmap=cmap, origin='lower')
+            elif compare == 'sub':
+                ax.flat[2].imshow(img1[:,:,slice[0],v].T - img2[:,:,slice[0],v].T, cmap=cmap, origin='lower')
+                ax.flat[2].set_title('Difference')
+                ax.flat[5].imshow(img1[:,slice[1],:,v].T - img2[:,slice[1],:,v].T, cmap=cmap, origin='lower')
+                ax.flat[8].imshow(img1[slice[2],:,:,v].T - img2[slice[2],:,:,v].T, cmap=cmap, origin='lower')
+            else:
+                print('Invalid comparison type')
+                return [False, 'Invalid comparison type']
+
+            plt.tight_layout()
+            fig.savefig(args.out + f'_{v}.png', dpi=300)
+
+            return [True, f'Comparison plots created for {sub}']
+        
+    
+        # Run GIBS QA
+        # Returns True or False depending on success and message for logging
+
+        # First check whether we have QA directory set and whether to run it at all:
+        # at at begging or with check_qa method
+        if not self.qadir or not self.runqa:
+            return [False, f'{sub} QA not run: QA directory not set or QA not set to run']
+
+        # if sub dir in does not exist, then create it - if exists, delete it and create it again
+        # if cannot create or delete, then return stop QA and return False
+        # also set self.qadir to False and self.runqa to False    
+        self.qa_plots_gibs = self.join(self.qadir, 'dwi', 'gibbs', sub)
+        if self.exists(self.qa_plots_gibs):
+            try:
+                self.rmtree(self.qa_plots_gibs)
+                self.makedirs(self.qa_plots_gibs)
+            except:
+                print(f'{sub}  Could not delete or create {self.qa_plots_gibs} directory. QA will not be run.')
+                self.qadir = False
+                self.runqa = False
+                return [False, f'{sub} QA not run: could not delete or create qa_plots_gibs directory: {self.qa_plots_gibs}']
+        else:
+            try:
+                self.makedirs(self.qa_plots_gibs)
+                if self.verbose:
+                    print(f'{sub} Created QA {self.qa_plots_gibs} directory.')
+            except:
+                print(f'{sub} Could not create {self.qa_plots_gibs} directory. QA will not be run.')
+                self.qadir = False
+                self.runqa = False
+                return [False, f'QA not run: could not create qa_plots_gibs directory: {self.qa_plots_gibs}']
+        
+        # QA direcectory is set and exists, so we can run QA
+
+        # check if we have all the files we need
+        ap_raw = self.exists(self.join('tmp', sub, f'{sub}_AP.nii'))
+        pa_raw = self.exists(self.join('tmp', sub, f'{sub}_PA.nii'))
+        ap_gib = self.exists(self.join('tmp', sub, f'{sub}_AP_gibbs.nii.gz'))
+        pa_gib = self.exists(self.join('tmp', sub, f'{sub}_PA_gibbs.nii.gz'))
+
+        ims = [ap_raw, pa_raw, ap_gib, pa_gib]
+
+        for n, i in enumerate(ims):
+            if not i:
+                print(f'{sub} QA Could not find {self.join("tmp", sub, f"{sub}_AP.nii")} cannot plot it.')
+            else:
+                if self.verbose:
+                    print(f'{sub} QA found {self.join("tmp", sub, f"{sub}_AP.nii")}.')
+
+        if not all(ims):
+            return [False, f'{sub} QA not run: could not find all the files needed for QA']
+
+        # if we have all the files, then run QA
+        # make gif for AP RAW and AP GIBBS
+
+        # Compare volumes for AP RAW and AP GIBBS
+
+        # Compare volumes for PA RAW and PA GIBBS
+
+        # Add to website
+
+        # end of QA GIBBS
+        
+        return True
+
+    ########################################
+    # Logging and reporting ################
+    ########################################
+    # TODO - take from the other script
 
     ########################################
     # DWI Preprocessing ####################
@@ -257,273 +639,52 @@ class DwiPreprocessingClab():
     def gibbs(self, sub):
         # Run Gibbs ringing correction, for each subject
 
-        # Subid should have been checked
-        # Subject dir should have been checked
-        # tmp folder should have been checked
-        # raw data should have been checked
+        # Perform subject checks
+        # TODO add to logs
+        if self.verbose:
+            print(f'Performing subject checks for {sub}')
+        chstat, chmsg = self.perform_subject_checks(sub)
+        if not chstat:
+            print(chmsg)
+            return [0, f'Subject {sub} checks failed, subject not processed']
+        else:
+            if self.verbose:
+                print(chmsg)
 
         # copy raw data to tmp folder
-        o = self.cp_rawdata(sub) # will return status code
+        cpstat, cpmsg = self.cp_rawdata(sub) # will return status code
 
-        # if copied ok, then run gibbs
-        if o == 1:
+        # if copied ok, 1 returned, then run gibbs
+        if cpstat:
             if self.verbose:
+                # TODO - log
+                print(cpmsg)
                 print(f'Running gibbs ringing correction for {sub}')
             
             self.sp.run(f'dipy_gibbs_ringing {self.join("tmp", sub, sub + "_AP.nii")} {self.join("tmp", sub, sub + "_AP_gib.nii")}', shell=True)
             self.sp.run(f'dipy_gibbs_ringing {self.join("tmp", sub, sub + "_PA.nii")} {self.join("tmp", sub, sub + "_PA_gib.nii")}', shell=True)
 
-            # Create plots for QA
-            # Create dirs to plot to
-            self.mkdir(self.join('tmp', sub, 'imgs'))
-            self.mkdir(self.join('tmp', sub, 'imgs', 'gibbs'))
-
-            # Plot AP RAW
-            self.sp.run(f'fun/gifdwi.py {self.join("tmp", sub, sub + "_AP.nii")} {self.join("tmp", sub, "imgs", "gibbs", sub + "_AP_raw.gif")} -t AP_RAW', shell=True)
-            # plot AP Gibbs
-            self.sp.run(f'fun/gifdwi.py {self.join("tmp", sub, sub + "_AP_gib.nii")} {self.join("tmp", sub, "imgs", "gibbs", sub + "_AP_gib.gif")} -t AP_GIBBS', shell=True)
-
-            # Plot AP Comparison
-            plot_i1 = self.join("tmp", sub, sub + "_AP.nii")
-            plot_i2 = self.join("tmp", sub, sub + "_AP_gib.nii")
-            self.sp.run(f'fun/compare.py {sub} {plot_i1} {plot_i2} \
-                {self.join("tmp", sub, "imgs", "gibbs", sub + "_ap_rawgib")}\
-                 -v 0 1 2 3 4 5 6 7 8 ', shell=True)
-
-            # Plot PA Comparison
-            plot_i1 = self.join("tmp", sub, sub + "_PA.nii")
-            plot_i2 = self.join("tmp", sub, sub + "_PA_gib.nii")
-            self.sp.run(f'fun/compare.py {sub} {plot_i1} {plot_i2} \
-                {self.join("tmp", sub, "imgs", "gibbs", sub + "_pa_rawgib")}\
-                 -v 0 1 2 3 4 ', shell=True)
+            # TODO QA
         else:
             # Copy was not successful, return error code
-            return o
+            # TODO - log
+            return [0, f'Copy of raw data for {sub} was not successful, subject not processed']
 
         
 
         # copy output to dataout folder
 
+        return [1, f'Gibbs ringing correction for {sub} was successful']
 
-        
-
-    def p2s(self):
+    def p2s(self, sub):
         # TODO
         # Run patch2self
         pass
 
-    def eddy(self):
+    def eddy(self, sub):
         # TODO
         pass
 
-    def topup(self):
+    def topup(self, sub):
         # TODO
         pass
-
-args = argparse.ArgumentParser(description="DWI preprocessing pipeline script")
-args.add_argument('stage', help="Stage of the pipeline to run", choices=[1,2,3,4,5, 'gibbs', 'p2s', 'topup', 'eddy', 'qa'])
-args.add_argument('mode', help='Mode to run in, s or sub for a single subject id,\
-    l or list for a list of subject ids, a or all for all subject ids that are going to be found in the data directory', choices=['s', 'sub', 'l', 'list', 'a', 'all'])
-args.add_argument('datain', help='Path to data directory; either the rawdata or derivatives folder with all subs- inside')
-args.add_argument('dataout', help='Path to output directory; most likely the derivatives folder')
-args.add_argument('-i', '--input', help='Input: subject id if mode == s, path to list of subject ids if mode == l, do not use if mode == a', required=False)
-args.add_argument('-t', '--threads', help='Number of threads to use', type=int, default=-1)
-args.add_argument('-noclean', '--noclean', help='Do not clean tmp dir but move to dataout', action='store_true', default=False)
-args.add_argument('-nocopy', '--nocopy', help='Do not copy data to dataout', action='store_true', default=False)
-args.add_argument('-notg', '--notelegram', help='Do not send telegram message', action='store_true', default=False)
-a = args.parse_args()
-
-"""
-Perform sanity checks on input and locate required files
-"""
-# Check if we are using dipy and fsl from the containers
-# When creating the container an empty file is created in the /opt folder
-# so we can check if the container is loaded by checking if the file exists
-"""
-if not exists('/opt/dwiprep.txt'):
-    print('Could not locate dipy_info, please ensure that the singularity image is loaded')
-    exit(1)"""
-# TODO
-# alternative method would be to touch a dummy file inside the container and then check for existence
-
-# Check if telegram config files are present:
-if exists('send_telegram.py') and not a.notelegram:
-    telegram = True
-    from send_telegram import sendtel
-else:
-    telegram = False
-
-# Check if input is valid
-if a.mode in ['s', 'sub']:
-    # if mode is set as single subject, check if input is provided
-    if not a.input:
-        print('Please provide a subject id with the -i or --input flag')
-        exit(1)
-    else:
-        # check is prefix is sub-
-        if not a.input.startswith('sub-'):
-            a.input = 'sub-' + a.input
-        # check if subject id exists in data directory
-        if not exists(join(a.datain, a.input)):
-            print(f'Could not locate {a.input} in {a.datain}, exiting...')
-            exit(1)
-        else:
-            # This ensures that the subject id is a list
-            # and so we can use the same code for all modes
-            subs = [a.input]
-elif a.mode in ['l', 'list']:
-    if not a.input:
-        print('Please provide a path to a list of subject ids with the -i or --input flag')
-        exit(1)
-    elif not exists(a.input):
-        print(f'Could not locate {a.input}, exiting...')
-        exit(1)
-    else:
-        # Load subject ids from list
-        subs = np.loadtxt(a.input, dtype=str)
-        for s in subs:
-            # add prefix sub- if not there
-            if not s.startswith('sub-'):
-                s = 'sub-' + s
-            if not exists(join(a.datain, s)):
-                print(f'Could not locate {s} in {a.datain}, exiting...')
-                exit(1)
-            else:
-                print(f'Found {s} in {a.datain}')
-elif a.mode in ['a', 'all']:
-    if not exists(a.datain):
-        print(f'Could not locate {a.datain}, exiting...')
-        exit(1)
-    else:
-        subs = [f for f in ls(a.datain) if f.startswith('sub-')]
-        print(f'Found {len(subs)} subjects in {a.datain}')
-
-# Check if output directory exists
-if not exists(a.dataout) and not a.nocopy:
-    print(f'Could not locate {a.dataout}, please create it or ensure access. Exiting...')
-    exit(1)
-
-# Check if tmp dir exists
-if not exists('tmp'):
-    print('Creating tmp directory...')
-    mkdir('tmp')
-
-"""
-Initialise logging
-"""
-log = StatusLog('status.log')
-
-"""
-Initialise QA stuff
-"""
-dwiqa = QaHtml('QAtest', subs, 'DWIPREP')
-
-"""
-Run processing pipeline, this is run for each subject at each step,
-that is, all subject are de-ringed, then all subjects are denoised, etc.
-this is because the output of one step is the input of the next step and
-some of the steps are computationally expensive and paralellised and some 
-(topup) are not.
-"""
-
-if a.stage in [1, 'gibbs']:
-    log.info('ALL', 'Running Gibbs de-ringing')
-    for i, s in enumerate(subs):
-        
-        # log
-        log.subjectStart(s, 'Gibbs de-ringing')
-        
-        """
-        1. Run Gibbs de-ringing and create control plot for some example volumes
-        """
-
-        print(f'Copying data for {s} ({i+1}/{len(subs)})')
-        
-        # Copy data to tmp directory
-        try:
-            sp.run(f'python fun/copy_dwi.py {s} {a.datain} tmp -v', shell=True)
-            log.ok(s, 'Gibbs de-ringing, Copying data')
-        except:
-            log.error(s, 'Gibbs de-ringing, Copying data')
-            continue
-
-        # Created dirs for QA plots
-        sp.run(f'mkdir tmp/{s}/imgs', shell=True)
-        sp.run(f'mkdir tmp/{s}/imgs/gibbs', shell=True)
-        
-        # Create control plot for raw images (gif)
-        try:
-            nii_file = join('tmp', s, f'{s}_AP.nii')
-            gif_file = join('tmp', s, 'imgs', 'gibbs', f'{s}_raw.gif')
-
-            sp.run(f'python fun/gifdwi.py {nii_file} {gif_file} -t "{s} AP RAW"', shell=True)
-            log.ok(s, 'Gibbs de-ringing, Creating control plot RAW')
-        except:
-            log.error(s, 'Gibbs de-ringing, Creating control plot RAW')
-            continue
-        
-        # Run Gibbs de-ringing
-        print(f'Running Gibbs de-ringing for {s} ({i+1}/{len(subs)})')
-        try:
-            sp.run(f'dipy_gibbs_ringing tmp/{s}/{s}_AP.nii --num_processes {a.threads} --out_unring tmp/{s}/{s}_AP_gib.nii.gz', shell=True) 
-            sp.run(f'dipy_gibbs_ringing tmp/{s}/{s}_PA.nii --num_processes {a.threads} --out_unring tmp/{s}/{s}_PA_gib.nii.gz', shell=True)
-            log.ok(s, 'Gibbs de-ringing, Running Gibbs de-ringing')
-        except:
-            log.error(s, 'Gibbs de-ringing, Running Gibbs de-ringing')
-            continue
-
-        # Create control plot GIF plus selected volumes compared to raw
-        print(f'Creating QA plots for {s} ({i+1}/{len(subs)})')
-        try:
-            nii_file = join('tmp', s, f'{s}_AP_gib.nii.gz')
-            gif_file = join('tmp', s, 'imgs', 'gibbs', f'{s}_gibbs.gif')
-
-            sp.run(f'python fun/gifdwi.py {nii_file} {gif_file} -t "{s} AP gib"', shell=True)
-            log.ok(s, 'Gibbs de-ringing, Creating control plot GIBBS corrected')
-        except:
-            log.error(s, 'Gibbs de-ringing, Creating control plot GIBBS corrected')
-            continue
-
-        try:
-            sp.run(f'python fun/compare.py {s} tmp/{s}/{s}_AP.nii tmp/{s}/{s}_AP_gib.nii.gz \
-            tmp/{s}/imgs/gibbs/{s}_ap_rawgib -v 0 1 2 3 4 5 6 7 8 9 10', shell=True)
-            
-            sp.run(f'python fun/compare.py {s} tmp/{s}/{s}_PA.nii tmp/{s}/{s}_PA_gib.nii.gz \
-            tmp/{s}/imgs/gibbs/{s}_pa_rawgib -v 0 1 2 3 ', shell=True)
-            
-            log.ok(s, 'Gibbs de-ringing, Creating compare plot GIBBS corrected and RAW')
-        except:
-            log.error(s, 'Gibbs de-ringing, Creating compare plot GIBBS corrected and RAW')
-            continue
-        
-        if not a.nocopy:
-            # Copy all data back to dataout (most likely derivatives) directory
-            print(f'Copying data to {a.dataout} for {s} ({i+1}/{len(subs)})')
-            try:
-                sp.run(f'cp -fR tmp/{s} {a.dataout}', shell=True)
-                log.ok(s, f'Gibbs de-ringing, Copying data to {a.dataout}')
-            except:
-                log.error(s, f'Gibbs de-ringing, Copying data to {a.dataout}')
-                continue
-        else:
-            log.info(s, f'Gibbs de-ringing --nocopy flag, Skipping copying data to {a.dataout}')
-
-        if not a.noclean:
-            # Remove tmp directory
-            print(f'Removing tmp directory for {s} ({i+1}/{len(subs)})')
-            try:
-                sp.run(f'rm -fR tmp/{s}', shell=True)
-                log.ok(s, 'Gibbs de-ringing, Removing tmp directory')
-            except:
-                log.error(s, 'Gibbs de-ringing, Removing tmp directory')
-                continue
-        else:
-            log.info(s, 'Gibbs de-ringing --noclean flag, Skipping tmp directory removal')
-         
-        log.subjectEnd(s, 'Gibbs de-ringing')
-
-    # notify user that this step is complete
-    log.ok('ALL', 'Gibbs de-ringing complete')
-    if telegram:
-        sendtel('Gibbs de-ringing complete')
-    
