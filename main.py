@@ -157,7 +157,7 @@ class DwiPreprocessingClab():
     def check_telegram(self):
         # Check if telegram setup file is present and whether the user wants to use it
         # Not critical so it does not return anything
-        if exists('send_telegram.py') and self.telegram == True:
+        if self.exists('send_telegram.py') and self.telegram == True:
             self.telegram = True
             self.log.ok('INIT', 'Telegram setup file found.')
             if self.verbose:
@@ -175,7 +175,7 @@ class DwiPreprocessingClab():
         # When creating the container an empty file is created in the /opt folder
         # so we can check if the container is loaded by checking if the file exists
         
-        if not exists('/opt/dwiprep.txt'):
+        if not self.exists('/opt/dwiprep.txt'):
             self.log.error('INIT', 'Not running in the container.')
             return [False, 'Exit error. Not running in required singularity image. Please ensure that the singularity image is loaded']
         else:

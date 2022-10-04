@@ -19,7 +19,7 @@ class StatusLog:
             mkdir('logs')
         # Make datetime available to all methods
         self.dt = dt
-        self.timestamps = self.dt.now().strftime('%Y%m%d%H%M%S')
+        self.timestamp = self.dt.now().strftime('%Y%m%d%H%M%S')
         self.filename = join('logs', f'{self.timestamp}_{task.replace(" ","").lower()[:10]}.log')
         self.file = open(self.filename, 'w')
         self.file.write(f'{self.dt.now()}\tALL\tNA\tStatusLog initialised.')
