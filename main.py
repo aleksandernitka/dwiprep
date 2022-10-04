@@ -29,7 +29,6 @@ class DwiPreprocessingClab():
         self.input = input # input file or subject id to be processed
         self.datain = datain # input directory
         self.dataout = dataout # output directory
-        self.qadir = qadir # quality assurance directory
         self.threads = threads # number of threads to be used, when possible to set
         self.telegram = telegram # whether to send telegram notifications
         self.verbose = verbose # whether to print verbose messages
@@ -551,25 +550,7 @@ class DwiPreprocessingClab():
             self.log_ok('QA', 'QA directories found and created if needed, QA is enabled')
             return [True, 'QA directories found and created if needed']
 
-    def make_sub_qa_html(self, sub):
-        # TODO
-        # Make html page for a subject
-        # This sets up the html page and should be run before the qa for a single subject
-        # as it sets up the html page that will then be read by the qa methods
-        # Use self.qadir
-        pass
 
-    def make_dwi_qa_html(self):
-        # TODO
-        # Make html page for dwi data that links to all subs
-        # Use self.qadir
-        pass
-
-    def run_qa_gibbs(self, sub):
-        # TODO
-        # Run QA for gibbs ringing
-        # Use self.qadir
-        pass
 
     ########################################
     # Plotting methods #####################
@@ -733,6 +714,10 @@ class DwiPreprocessingClab():
     def gibbs(self):
         
         # Check if QA required
+        # This has been disabled as there was a problem with the QApath
+        # also, did not want to spend too much time on it. 
+        # plots are being created but not being moved the the QA dir, this can be done later.
+        '''        
         [s, m] = self.check_qa(dwi=True)
         if not s:
             # we will not run QA, but still can run the processing
@@ -753,7 +738,7 @@ class DwiPreprocessingClab():
         else:
             self.log_ok('INIT', m)
             print(m)
-        
+        '''
         # Check if we have subjects to process
         print(f'{len(self.subs)} subjects to process')
         self.log_info('INIT', f'{len(self.subs)} subjects to process for gibbs ringing correction, taks name: {self.task}')
