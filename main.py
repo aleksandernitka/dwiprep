@@ -219,7 +219,7 @@ class DwiPreprocessingClab():
                 print('Mode recognised.')
 
         # check if input is correct, based on mode selected
-        if self.input == None:
+        if self.input == None and self.mode not in ['a', 'all']:
             self.log_error('INIT', 'Exit Error. Input not specified.')
             return [False, 'Exit Error. Input not provided.']
         else:
@@ -329,7 +329,7 @@ class DwiPreprocessingClab():
             return [False, f'Subject {sub} directory not found in {self.datain}']
         else:
             if self.verbose:
-                print('Subject {sub} directory found in {self.datain}')
+                print(f'Subject {sub} directory found in {self.datain}')
             self.log_ok(f'{sub}', f'Subject {sub} directory found in {self.datain}')
             return [True, f'Subject {sub} directory found in {self.datain}']
 
@@ -403,7 +403,7 @@ class DwiPreprocessingClab():
         import shutil
 
         # get all dwi files for pp
-        bfs = [f for f in ls(join(self.datain, sub, 'dwi')) if '.DS_' not in f]
+        bfs = [f for f in self.ls(self.join(self.datain, sub, 'dwi')) if '.DS_' not in f]
 
         # get all _AP_ files
         fsdwi = [f for f in bfs if '_SBRef_' not in f and '_ADC_' not in f and '_TRACEW_' not in f and '_ColFA_' not in f and '_FA_' not in f]
@@ -556,7 +556,7 @@ class DwiPreprocessingClab():
     # Plotting methods #####################
     ########################################
 
-    def gif_dwi_4d(self, image, gif, title, slice=55, fdur=500):
+    def gif_dwi_4d(self, sub, image, gif, title, slice=55, fdur=500):
 
         # Create a gif of a 4D image
         # It will go through the 4th dimension and create a gif, 
@@ -603,7 +603,7 @@ class DwiPreprocessingClab():
         if self.verbose:
             print(f'Making GIF from images in {tmpDir} and saving to {gif}')
         try:
-            images = [Image.open(self.join(tmpDir, i)) for i in ls(self.join(tmpDir)) if i.endswith('.png') and i.startswith('tmp_img')]
+            images = [Image.open(self.join(tmpDir, i)) for i in self.ls(self.join(tmpDir)) if i.endswith('.png') and i.startswith('tmp_')]
             image1 = images[0]
             image1.save(self.join(gif), format = "GIF", save_all=True, append_images=images[1:], duration=fdur, loop=0)
             self.log_info(f'{sub}', f'plotdwi4d: Made GIF: {gif}')
@@ -703,8 +703,8 @@ class DwiPreprocessingClab():
             fig.savefig(out + f'_{v}.png', dpi=300)
             plt.close(fig)
 
-            self.log_ok(f'{sub}', f'plt_compare_4d: Made plots for {file1} and {file2}')
-            return [True, f'Comparison plots created for {sub}']
+        self.log_ok(f'{sub}', f'plt_compare_4d: Made plots for {file1} and {file2}')
+        return [True, f'Comparison plots created for {sub}']
         
 
     ########################################
@@ -748,7 +748,7 @@ class DwiPreprocessingClab():
 
         # Loop over subjects
         for i, sub in enumerate(self.subs):
-            print(f'Processing subject {sub} ({i+1}/{len(self.subs)} for gibbs ringing correction')
+            print(f'Processing subject {sub} ({i+1}/{len(self.subs)} for gibbs ringing correction)')
             
             # Log start
             self.log_subjectStart(sub, 'dipygibbs')
@@ -787,20 +787,23 @@ class DwiPreprocessingClab():
                 self.log_ok(sub, m)
                 pass
 
-            print(f'Running gibbs ringing correction for {sub}')
             self.log_info(f'{sub}', f'Running gibbs ringing correction for AP {sub}')
-            self.sp.run(f'dipy_gibbs_ringing {self.join("tmp", sub, sub + "_AP.nii")} {self.join("tmp", sub, sub + "_AP_gib.nii.gz")}', shell=True)
+            self.sp.run(f'dipy_gibbs_ringing {self.join("tmp", sub, sub + "_AP.nii")} --out_unring {self.join("tmp", sub, sub + "_AP_gib.nii.gz")} --num_processes={self.threads}', shell=True)
             self.log_info(f'{sub}', f'Running gibbs ringing correction for PA {sub}')
-            self.sp.run(f'dipy_gibbs_ringing {self.join("tmp", sub, sub + "_PA.nii")} {self.join("tmp", sub, sub + "_PA_gib.nii.gz")}', shell=True)
+            self.sp.run(f'dipy_gibbs_ringing {self.join("tmp", sub, sub + "_PA.nii")} --out_unring {self.join("tmp", sub, sub + "_PA_gib.nii.gz")} --num_processes={self.threads}', shell=True)
 
             # QA
             # create a directory for the QA plots
             self.mkdir(self.join('tmp', sub, 'imgs'))
             self.mkdir(self.join('tmp', sub, 'imgs', 'gibbs'))
             # make gif, AP raw
-            self.gif_dwi_4d(self.join("tmp", sub, sub + "_AP.nii", self.join("tmp", sub, "imgs", "gibbs", f'{sub}_AP_raw.gif'), sub + " AP RAW"))
+            i = self.join("tmp", sub, f"{sub}_AP.nii")
+            g = self.join("tmp", sub, "imgs", "gibbs", f"{sub}_AP_raw.gif")
+            self.gif_dwi_4d(sub=sub, image=i, gif=g, title=f'{sub} ap raw')
             # make gif, AP gib
-            self.gif_dwi_4d(self.join("tmp", sub, sub + "_AP_gib.nii.gz", self.join("tmp", sub, "imgs", "gibbs", f'{sub}_AP_raw.gif'), sub + " AP RAW"))
+            i = self.join("tmp", sub, f"{sub}_AP_gib.nii.gz")
+            g = self.join("tmp", sub, "imgs", "gibbs", f"{sub}_AP_gib.gif")
+            self.gif_dwi_4d(sub=sub, image=i, gif=g, title=f'{sub} ap gib')
             
             # compare volumes
             v1 = self.join("tmp", sub, sub + "_AP.nii")
