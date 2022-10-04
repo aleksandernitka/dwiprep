@@ -1,5 +1,3 @@
-from fun.stauslog import StatusLog
-from fun.qahtml import QaHtml
 
 
 class DwiPreprocessingClab():
@@ -15,7 +13,7 @@ class DwiPreprocessingClab():
     # - Scikit-Image 
     # - Nilearn 
 
-    def __init__(self, mode=None, input=None, datain=None, dataout=None, \
+    def __init__(self, task, mode, input=None, datain=None, dataout=None, \
         qadir=None, threads=-1, telegram=True, verbose=False, clean=True, copy=True):
         
         # Imports
@@ -25,7 +23,9 @@ class DwiPreprocessingClab():
         from os import listdir as ls
         from dipy.io.image import load_nifti
         import subprocess as sp
+        from fun.stauslog import StatusLog as sl
 
+        self.task = task # name of the task performed, used for logging. Can be anything but keep it brief
         self.mode = mode # mode of the pipeline to be run, either single subject, list of subjects or all subjects in a directory
         self.input = input # input file or subject id to be processed
         self.datain = datain # input directory
@@ -51,6 +51,10 @@ class DwiPreprocessingClab():
         self.basename = basename
         self.sp = sp
         self.load_nifti = load_nifti
+        self.log = sl
+
+        # init log
+        loginit = self.log(self.task)
 
     ########################################
     # Checking methods #####################
@@ -77,13 +81,16 @@ class DwiPreprocessingClab():
 
         # Check whether mode is correct
         if self.mode not in ['s', 'sub', 'l', 'list', 'a', 'all']:
+            self.log.error('INIT', 'Exit Error. Mode not recognised.')
             return [False, 'Exit Error. Mode not recognised.']
         else:
             if self.verbose:
+                self.log.ok('INIT', 'Mode recognised')
                 print('Mode recognised.')
 
         # check if input is correct, based on mode selected
         if self.input == None:
+            self.log.error('INIT', 'Exit Error. Input not specified.')
             return [False, 'Exit Error. Input not provided.']
         else:
             # For subject we do not need to check if the file exists
@@ -95,12 +102,14 @@ class DwiPreprocessingClab():
                 # make a list of inputs from one input, so all modes
                 # can be treated the same way
                 self.subs = [self.check_subid(self.input)]
+                self.log.ok('INIT', 'Input recognised; single subject mode.')
                 return [True, 'Input recognised. Single subject mode.']
             
             # For the list mode we need to check if the file exists
             elif self.mode in ['l', 'list']:
                 if self.verbose:
                     print('Input recognised. List of subjects mode.')
+                self.log.ok('INIT', 'Input recognised; list of subjects mode.')
                 if self.isfile(self.input):
                     # DO not need to check if the file is empty, do it at the loop level
                     # But read the file in and make a list of inputs
@@ -108,32 +117,40 @@ class DwiPreprocessingClab():
                     try:
                         with open(self.input, 'r') as f:
                             self.subs = f.readlines()
+                        self.log.ok('INIT', 'Input recognise and read; list of subjects mode.')
                         return [True, 'Input recognised and loaded. List of subjects mode.']
                     except:
+                        self.log.error('INIT', 'Exit Error. Input file could not be read.')
                         return [False, 'Exit Error. Input file not readable.']
                 else:
+                    self.log.error('INIT', f'Exit Error. Input file {self.input} not found.')
                     return [False, 'Exit Error. Input file not found.']
             
             # all mode needs a valid directory
             elif self.mode in ['a', 'all']:
                 if self.verbose:
                     print('Input recognised. All subjects mode.')
-
+                self.log.ok('INIT', 'Input recognised; all subjects mode.')
                 # Does the indir exist at all? If not - exit
                 if not self.isdir(self.input):
+                    self.log.error('INIT', f'Exit Error. Input directory {self.input} not found.')
                     return [False, f'Exit Error. Input directory not found {self.datain}.']
                 else:
+                    self.log.ok('INIT', 'Input directory found.')
                     # Now, do we have any subjects in the directory? If not - exit
                     allsubs = [f for f in self.ls(self.datain) if f.startswith('sub-') and self.isdir(self.join(self.datain, f))]
                     if len(allsubs) == 0:
+                        self.log.error('INIT', f'Exit Error. No subjects found in {self.input}.')
                         return [False, f'Exit Error. No subjects found in the input directory {self.datain}.']
                     else:
                         # set as input
                         self.subs = allsubs
                         if self.verbose:
                             print(f'Found {len(allsubs)} subjects in the input directory: {self.datain}')
+                        self.log.ok('INIT', f'Found {len(self.subs)} subjects in the input directory.')
                         return [True, f'Input recognised. All subjects mode. Found {len(allsubs)} subjects in the input directory {self.datain}.']
             else:
+                self.log.error('INIT', 'Exit Error. Mode not recognised.')
                 return [False, 'Exit Error. Mode not recognised.']
     
     def check_telegram(self):
@@ -141,11 +158,13 @@ class DwiPreprocessingClab():
         # Not critical so it does not return anything
         if exists('send_telegram.py') and self.telegram == True:
             self.telegram = True
+            self.log.ok('INIT', 'Telegram setup file found.')
             if self.verbose:
                 print('Telegram notifications are enabled')
             from send_telegram import sendtel
             self.tg = sendtel() # use self.tg('msg') to send messages
         else:
+            self.log.ok('INIT', 'Telegram setup file not found.')
             self.telegram = False
             if self.verbose:
                 print('Telegram not available')
@@ -156,16 +175,19 @@ class DwiPreprocessingClab():
         # so we can check if the container is loaded by checking if the file exists
         
         if not exists('/opt/dwiprep.txt'):
+            self.log.error('INIT', 'Not running in the container.')
             return [False, 'Exit error. Not running in required singularity image. Please ensure that the singularity image is loaded']
         else:
             if self.verbose:
                 print('Singularity image loaded')
+            self.log.ok('INIT', 'Singularity image loaded.')
             return [True, 'Singularity image loaded']
 
     def check_subid(self, sub):
         # Check if subject name contains sub- prefix
         # Can fix so no return value
         if not sub.beginswith('sub-'):
+            self.log.warning(f'{sub}', f'Subject name {sub} does not contain sub- prefix. Adding it.')
             sub = 'sub-' + sub
         return sub
 
@@ -173,10 +195,12 @@ class DwiPreprocessingClab():
         # Check if subject directory exists in indir
         if not self.exists(self.join(self.datain, sub)):
             print(f'Subject {sub} directory not found in {self.datain}')
+            self.log.error(f'{sub}', f'Subject {sub} directory not found in {self.datain}')
             return [False, f'Subject {sub} directory not found in {self.datain}']
         else:
             if self.verbose:
                 print('Subject {sub} directory found in {self.datain}')
+            self.log.ok(f'{sub}', f'Subject {sub} directory found in {self.datain}')
             return [True, f'Subject {sub} directory found in {self.datain}']
 
     def check_tmp_dir(self):
@@ -186,13 +210,17 @@ class DwiPreprocessingClab():
         # AND if mkdir fails, return False
 
         if not self.exists('tmp'):
+            self.log.warning('INIT', 'tmp folder not found. Creating it...')
             try:
                 self.mkdir('tmp')
                 print('tmp folder created')
+                self.log.ok('INIT', 'tmp folder created.')
                 return [True, 'tmp folder created']
             except:
+                self.log.error('INIT', 'tmp folder could not be created.')
                 return [False, 'Exit error. Could not create tmp folder']
         else:
+            self.log.ok('INIT', 'tmp folder found.')
             if self.verbose:
                 print('tmp directory already exists')
             return [True, 'tmp directory already exists']
@@ -202,16 +230,21 @@ class DwiPreprocessingClab():
         # Create it if it does not exist
         # AND if mkdir fails, return False
         if not self.exists(self.join('tmp', sub)):
+            self.log.info(f'{sub}', f'Subject {sub} directory not found in tmp. Creating it...')
             try:
                 self.mkdir(self.join('tmp', sub))
+                self.log.ok(f'{sub}', f'Subject {sub} directory created in tmp.')
                 if self.verbose:
                     print(f'Subject {sub} directory created in tmp')
                 return [True, f'Subject {sub} directory created in tmp']
             except:
+                self.log.error(f'{sub}', f'Subject {sub} directory could not be created in tmp.')
                 return [False, f'Exit error. Could not create subject {sub} directory in tmp']
         else:
+            self.log.info(f'{sub}', f'Subject {sub} directory found in tmp.')
             if self.verbose:
                 print(f'Subject {sub} directory found in tmp')
+            # TODO - if found sub dir in tmp, should we delete it?
             return [True, f'Subject {sub} directory found in tmp']
 
     def check_list_from_file(self):
@@ -227,13 +260,20 @@ class DwiPreprocessingClab():
         
         if not self.exists(self.input):
             print(f'Input file not found: {self.input}')
+            self.log.error('INIT', f'Input file not found: {self.input}')
             return [False, f'Input file not found: {self.input}']
+        else:
+            self.log.ok('INIT', f'Input file found: {self.input}')
 
         if not self.isfile(self.input):
+            self.log.error('INIT', f'Input is not a file: {self.input}')
             print(f'Input is not a file: {self.input}')
             return [False, f'Input is not a file: {self.input}']
+        else:
+            self.log.ok('INIT', f'Input is a file: {self.input}')
 
         if self.input.endswith('.txt') or self.input.endswith('.csv') or self.input.endswith('.tsv'):
+            self.log.ok('INIT', f'Input is a txt-readable file: {self.input}')
             if self.verbose:
                 print('Input is a text-readable file')
             
@@ -243,9 +283,10 @@ class DwiPreprocessingClab():
                 print(f'List of subjects: {subids}')
                 for subid in subids:
                     subid = self.check_subid(subid)
-                
+            self.log.ok('INIT', f'List of {len(subids)} subjects loaded: {subids}')  
             # Now all data has been checked in datain directory. 
         else:
+            self.log.error('INIT', f'Input is not a txt-readable file: {self.input}')
             print('Input is not a text-readable file')
             return 4
         
@@ -260,30 +301,34 @@ class DwiPreprocessingClab():
         # Check if we are using the correct singularity image
         s, m = self.check_container()
         if not s:
+            self.log.error('INIT', m)
             return [s, m]
         else:
-            # TODO - log the message
+            self.log.info('INIT', m)
             pass
         
         # Check if the input is correct
         s, m = self.check_input()
         if not s:
+            self.log.error('INIT', m)
             return [s, m]
         else:
-            # TODO - log the message
+            self.log.info('INIT', m)
             pass
         
         # Check the tmp dir
         s, m = self.check_tmp_dir()
         if not s:
+            self.log.error('INIT', m)
             return [s, m]
         else:
-            # TODO - log the message
+            self.log.info('INIT', m)
             pass
 
         # Check telegram - no return value
         self.check_telegram()
         
+        self.log.ok('INIT', 'All checks passed')
         return [True, 'All checks passed. Starting processing']
 
     def check_sub(self, sub):
@@ -320,6 +365,7 @@ class DwiPreprocessingClab():
         fsdwi = [f for f in bfs if '_SBRef_' not in f and '_ADC_' not in f and '_TRACEW_' not in f and '_ColFA_' not in f and '_FA_' not in f]
         if len(fsdwi) != 6:
             print(f'{sub} has {len(fsdwi)} dwi files')
+            self.log.error(f'{sub}', f'{sub} has {len(fsdwi)} dwi files and should have 6.')
             return [False, f'Number of dwi files is not 6, but {len(fsdwi)}']
 
         # cp dwi to tmp
@@ -338,6 +384,7 @@ class DwiPreprocessingClab():
             else:
                 pass
             
+            self.log.ok(f'{sub}', f'Copied raw data to tmp folder: {f}')
         return [True, f'Copied raw data for {sub} to tmp folder']
 
     def cp_derdata(self, sub, files):
@@ -368,28 +415,34 @@ class DwiPreprocessingClab():
         # enable QA at all
 
         self.runqa = True
+        self.log.info('QA', 'Checking if QA is enabled')
 
         if self.qadir is None:
             # QA not requested
             if self.verbose:
                 print('QA not requested')
+            self.log.info('QA', 'QA not requested')
             self.runqa = False
             return [False, 'QA not requested']
         else:
             if self.exists(self.qadir):
                 if self.verbose:
+                    self.log.info('QA', f'QA directory exists: {self.qadir}')
                     print(f'QA directory found: {self.qadir}')
                     # We may need to create the sub and plots dirs, so no return yet
             else:
                 print(f'QA directory not found: {self.qadir}')
+                self.log.info('QA', f'QA directory not found: {self.qadir}')
                 createqadir = input('Do you want to try create it? [y/n]: ')
                 if createqadir == 'y':
                     try:
                         self.makedirs(self.qadir)
                         print(f'QA directory created: {self.qadir}')
+                        self.log.info('QA', f'QA directory created: {self.qadir}')
                         # We may need to create the sub and plots dirs, so no return yet
                     except:
                         print(f'Could not create QA directory: {self.qadir}.')
+                        self.log.error('QA', f'Could not create QA directory: {self.qadir}.')
                         createinhere = input('Do you want to create it in the current directory? [y/n]: ')
                         if createinhere == 'y':
                             try:
@@ -398,89 +451,60 @@ class DwiPreprocessingClab():
                                 self.mkdir(self.split(self.qadir)[-1])
                                 self.qadir = self.abspath(self.split(self.qadir)[-1])
                                 print(f'QA directory created: {self.qadir}')
+                                self.log.info('QA', f'QA directory created: {self.qadir}')
 
                             except:
                                 # print('Could not create qa directory in current directory. QA will not be run.')
                                 self.runqa = False
                                 self.qadir = False
+                                self.log.error('QA', 'Could not create qa directory in current directory. QA will not be run.')
                                 return [False, 'Could not create qa directory in current directory. QA will not be run.']
                         else:
                             # print('No dir for QA so QA will not be run.')
                             self.runqa = False
                             self.qadir = False
+                            self.log.error('QA', 'No dir for QA so QA will not be run.')
                             return [False, 'No dir for QA so QA will not be run.']
                 else:
                     # print('No dir for QA so QA will not be run.')
                     self.runqa = False
                     self.qadir = False
+                    self.log.error('QA', 'No dir for QA so QA will not be run.')
                     return [False, 'No dir for QA so QA will not be run.']
 
             # DWI structure
             if dwi:
                 print('Requested to QA DWI data')
+                self.log.info('QA', 'Requested to QA DWI data')
                 # this indicates we are running QA on dwi data
                 # check if the folder structure is correct for the data
                 # That is:
                 
-                # QADIR --> DWI
-                try:
-                    if not self.exists(self.join(self.qadir, 'dwi')):
-                        self.mkdir(self.join(self.qadir, 'dwi'))
+                # Dirs to create:
+                dwiqadirs = [self.join(self.qadir, 'dwi'),\
+                self.join(self.qadir, 'dwi', 'subs'),\
+                self.join(self.qadir, 'dwi', 'plots'),\
+                self.join(self.qadir, 'dwi', 'plots', 'gibbs'),\
+                self.join(self.qadir, 'dwi', 'plots', 'p2s'),\
+                self.join(self.qadir, 'dwi', 'plots', 'topup'),\
+                self.join(self.qadir, 'dwi', 'plots', 'eddy')]
+
+                for d in dwiqadirs:
+                    if not self.exists(d):
+                        try:
+                            self.mkdir(d)
+                            self.log.info('QA', f'Created directory: {d}')
+                        except:
+                            self.log.error('QA', f'Could not create directory: {d}')
+                            self.runqa = False
+                            self.qadir = False
+                            return [False, f'Could not create directory: {d}']
                     else:
-                        if self.verbose:
-                            print(f'QA directory found: {self.join(self.qadir, "dwi")}')
-                except:
-                    print(f'Could not create QA directory: {self.join(self.qadir, "dwi")}.')
-                    print('QA will not be run.')
-                    self.runqa = False
-                    self.qadir = False
-                    return [False, 'Could not create qa directory in current directory. QA will not be run.']
-                
-                # QADIR --> dwi --> plots
-                try:
-                    if not self.exists(self.join(self.qadir, 'dwi', 'plots')):
-                        self.mkdir(self.join(self.qadir, 'dwi', 'plots'))
-                    else:
-                        if self.verbose:
-                            print(f'QA directory found: {self.join(self.qadir, "dwi", "plots")}')
-                except:
-                    print(f'Could not create QA directory: {self.join(self.qadir, "dwi", "plots")}.')
-                    print('QA will not be run.')
-                    self.runqa = False
-                    self.qadir = False
-                    return [False, 'Could not create qa directory in current directory. QA will not be run.']
-                
-                # QADIR --> dwi --> plots --> gibbs, eddy, topup, p2s
-                for m in ['gibbs', 'p2s', 'topup', 'eddy']:
-                    try:
-                        if not self.exists(self.join(self.qadir, 'dwi', 'plots', m)):
-                            self.mkdir(self.join(self.qadir, 'dwi', 'plots', m))
-                        else:
-                            if self.verbose:
-                                print(f'QA directory found: {self.join(self.qadir, "dwi", "plots", m)}')
-                    except:
-                        print(f'Could not create QA directory: {self.join(self.qadir, "dwi", "plots", m)}.')
-                        print('QA will not be run.')
-                        self.runqa = False
-                        self.qadir = False
-                        return [False, 'Could not create qa directory in current directory. QA will not be run.']
-                
-                # QADIR --> dwi --> subs
-                try:
-                    if not self.exists(self.join(self.qadir, 'dwi', 'subs')):
-                        self.mkdir(self.join(self.qadir, 'dwi', 'subs'))
-                    else:
-                        if self.verbose:
-                            print(f'QA directory found: {self.join(self.qadir, "dwi", "subs")}')
-                except:
-                    print(f'Could not create QA directory: {self.join(self.qadir, "dwi", "subs")}.')
-                    print('QA will not be run.')
-                    self.runqa = False
-                    self.qadir = False
-                    return [False, 'Could not create qa directory in current directory. QA will not be run.']
+                        self.log.info('QA', f'Directory exists: {d}')
 
             # if we got here, we are good to go
-            return [True, 'QA directory found and created if needed']
+            self.log.ok('QA', 'QA directories found and created if needed, QA is enabled')
+            return [True, 'QA directories found and created if needed']
 
     def make_sub_qa_html(self, sub):
         # TODO
@@ -517,7 +541,6 @@ class DwiPreprocessingClab():
         # fdur: frame duration in ms
         # slice: slice to show
 
-
         import matplotlib.pyplot as plt
         from PIL import Image
 
@@ -526,8 +549,10 @@ class DwiPreprocessingClab():
         # Use self.qadir
         try:
             img, __ = self.load_nifti(image)
+            self.log.info(f'{sub}', f'plotdwi4d: Loaded image: {image}')
         except:
             print(f'Could not load {image}')
+            self.log.error(f'{sub}', f'plotdwi4d: Could not load {image}')
             return [False, 'cannot load image']
 
         # Need path to dump tmp images
@@ -555,8 +580,10 @@ class DwiPreprocessingClab():
             images = [Image.open(self.join(tmpDir, i)) for i in ls(self.join(tmpDir)) if i.endswith('.png') and i.startswith('tmp_img')]
             image1 = images[0]
             image1.save(self.join(gif), format = "GIF", save_all=True, append_images=images[1:], duration=fdur, loop=0)
+            self.log.info(f'{sub}', f'plotdwi4d: Made GIF: {gif}')
         except:
             print(f'Could not make GIF {gif} from images in {tmpDir}')
+            self.log.error(f'{sub}', f'plotdwi4d: Could not make GIF {gif} from images in {tmpDir}')
             return [False, f'cannot make gif {gif}']
         
         # Clean up
@@ -566,9 +593,12 @@ class DwiPreprocessingClab():
             for i in self.ls(self.join(tmpDir)):
                 if i.endswith('.png') and i.startswith('tmp_img'):
                     self.remove(self.join(tmpDir, i))
+            self.log.info(f'{sub}', f'plotdwi4d: Cleaned up {tmpDir}')
         except:
             print(f'Could not clean up {tmpDir}')
+            self.log.error(f'{sub}', f'plotdwi4d: Could not clean up {tmpDir}')
             return [False, f'could not clean up tmpDir for {gif}']
+        self.log.ok(f'{sub}', f'plotdwi4d: Made GIF: {gif}')
         return [True, f'GIF created: {gif}']
 
     def plt_compare_4d(self, file1, file2, sub=None, vols=[0], slice=[50,50,50], \
@@ -597,8 +627,10 @@ class DwiPreprocessingClab():
             # Load images
             img1, __ = self.load_nifti(file1)
             img2, __ = self.load_nifti(file2)
+            self.log.info(f'{sub}', f'plt_compare_4d: Loaded images: {file1} and {file2}')
         except:
             print(f'Unable to load images for comparison: {file1} and {file2}')
+            self.log.error(f'{sub}', f'plt_compare_4d: Unable to load images for comparison: {file1} and {file2}')
             return [False, f'Unable to load images for comparison: {file1} and {file2}']
 
         # Make plot
@@ -638,11 +670,14 @@ class DwiPreprocessingClab():
                 ax.flat[8].imshow(img1[slice[2],:,:,v].T - img2[slice[2],:,:,v].T, cmap=cmap, origin='lower')
             else:
                 print('Invalid comparison type')
+                self.log.error(f'{sub}', f'plt_compare_4d: Invalid comparison type: {compare}')
                 return [False, 'Invalid comparison type']
 
             plt.tight_layout()
             fig.savefig(args.out + f'_{v}.png', dpi=300)
+            plt.close(fig)
 
+            self.log.ok(f'{sub}', f'plt_compare_4d: Made plots for {file1} and {file2}')
             return [True, f'Comparison plots created for {sub}']
         
     
@@ -712,11 +747,6 @@ class DwiPreprocessingClab():
         return True
 
     ########################################
-    # Logging and reporting ################
-    ########################################
-    # TODO - take from the other script
-
-    ########################################
     # DWI Preprocessing ####################
     ########################################
 
@@ -724,12 +754,16 @@ class DwiPreprocessingClab():
         # Run Gibbs ringing correction, for each subject
 
         # Perform subject checks
-        # TODO add to logs
+        
+        self.leg.subjectStart(sub, 'dipygibbs')
+
         if self.verbose:
             print(f'Performing subject checks for {sub}')
         chstat, chmsg = self.perform_subject_checks(sub)
+        self.log.info(f'{sub}', f'Performing subject checks for {sub}: {chmsg}')
         if not chstat:
             print(chmsg)
+            self.log.subjectEnd(sub, 'dipygibbs')
             return [0, f'Subject {sub} checks failed, subject not processed']
         else:
             if self.verbose:
@@ -744,20 +778,23 @@ class DwiPreprocessingClab():
                 # TODO - log
                 print(cpmsg)
                 print(f'Running gibbs ringing correction for {sub}')
-            
+            self.log.info(f'{sub}', f'Running gibbs ringing correction for AP {sub}')
             self.sp.run(f'dipy_gibbs_ringing {self.join("tmp", sub, sub + "_AP.nii")} {self.join("tmp", sub, sub + "_AP_gib.nii")}', shell=True)
+            self.log.info(f'{sub}', f'Running gibbs ringing correction for PA {sub}')
             self.sp.run(f'dipy_gibbs_ringing {self.join("tmp", sub, sub + "_PA.nii")} {self.join("tmp", sub, sub + "_PA_gib.nii")}', shell=True)
 
             # TODO QA
         else:
             # Copy was not successful, return error code
-            # TODO - log
+            self.log.error(f'{sub}', f'Could not copy raw data for {sub}')
+            self.log.subjectEnd(sub, 'dipygibbs')
             return [0, f'Copy of raw data for {sub} was not successful, subject not processed']
 
-        
-
+        # TODO
         # copy output to dataout folder
 
+        self.log.ok(f'{sub}', f'Gibbs ringing correction for {sub} completed successfully')
+        self.log.subjectEnd(sub, 'dipygibbs')
         return [1, f'Gibbs ringing correction for {sub} was successful']
 
     def dipyp2s(self, sub):
@@ -790,33 +827,47 @@ class DwiPreprocessingClab():
         [s, m] = self.check_start()
         if not s:
             print(m)
+            self.log.error('INIT', m)
             exit(1)
         else:
             print(m)
+            self.log.ok('INIT', m)
         
         # Check if QA required
         [s, m] = self.check_qa(dwi=True)
         if not s:
             # we will not run QA, but still can run the processing
             print(m)
+            self.log.warning('INIT', m)
             no_qa_continue = input('Do you want to continue without QA? (y/n): ')
             if no_qa_continue == 'y':
+                self.log.warning('INIT', 'User chose to continue without QA')
                 print('Continuing without QA')
             if no_qa_continue == 'n':
+                self.log.warning('INIT', 'User chose to exit without QA')
                 print('Exiting')
                 exit(1)
             else:
+                self.log.warning('INIT', 'User did not choose y or n, exiting')
                 print('Invalid input, exiting')
                 exit(1)
         else:
+            self.log.ok('INIT', m)
             print(m)
         
         # Check if we have subjects to process
         print(f'{len(self.subs)} subjects to process')
+        self.log.info('INIT', f'{len(self.subs)} subjects to process for gibbs ringing correction, taks name: {self.task}')
 
-        # TODO dump the list of subjects to process to a file
+        # dump the list of subjects to process to a file
+        self.log.subdump(self.subs, self.task)
 
         # Loop over subjects
-        for sub in self.subs:
-            pass
+        for i, sub in enumerate(self.subs):
+            print(f'Processing subject {sub} ({i+1}/{len(self.subs)} for gibbs ringing correction')
+            self.dipygibbs(sub)
+        
+        if self.telegram:
+            self.log.ok('ALL', f'Gibbs ringing correction completed successfully for {len(self.subs)} subjects')
+            self.tg('Gibbs ringing correction completed for all subjects')
 
