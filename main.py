@@ -770,7 +770,7 @@ class DwiPreprocessingClab():
 
             # Perform subject checks
             # Check indir
-            s, m = self.check_indir(sub)
+            s, m = self.check_subject_indir(sub)
             if not s:
                 self.log_error(sub, m)
                 print(m)
