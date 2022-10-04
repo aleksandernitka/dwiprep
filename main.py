@@ -12,7 +12,8 @@ class DwiPreprocessingClab():
     # - Nilearn 
 
     def __init__(self, task, mode, input=None, datain=None, dataout=None, \
-        qadir=None, threads=-1, telegram=True, verbose=False, clean=True, copy=True, log=True):
+        qadir=None, threads=-1, telegram=True, verbose=False, clean=True, \
+        copy=True, log=True, check_container=True):
         
         # Imports
         from os.path import join, exists, dirname, split, basename, isfile, isdir
@@ -62,11 +63,15 @@ class DwiPreprocessingClab():
         # This should be step 1 in the main script, ALWAYS
 
         # Check if we are using the correct singularity image
-        s, m = self.check_container()
-        if not s:
-            self.log_error('INIT', m)
-            exit(m)
+        if check_container:
+            s, m = self.check_container()
+            if not s:
+                self.log_error('INIT', m)
+                exit(m)
+            else:
+                pass
         else:
+            self.log_info('INIT', 'Container check skipped.')
             pass
         
         # Check if the input is correct
