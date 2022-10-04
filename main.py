@@ -49,9 +49,10 @@ class DwiPreprocessingClab():
         self.basename = basename
         self.sp = sp
         self.load_nifti = load_nifti
+        self.dt = dt
 
         # Start logging
-        self.log_start()
+        self.log_start(self.task)
 
         # Performs all neccessary checks before starting the processing
         # This should be step 1 in the main script, ALWAYS
@@ -100,7 +101,7 @@ class DwiPreprocessingClab():
             if not self.exists('logs'):
                 self.mkdir('logs')
             # Create a timestamp
-            self.logtimestamp = dt.now().strftime('%Y%m%d%H%M%S')
+            self.logtimestamp = self.dt.now().strftime('%Y%m%d%H%M%S')
             # create a log file
             self.logfilename = self.join('logs', f'{self.logtimestamp}_{task.replace(" ","").lower()[:10]}.log')
             self.file = open(self.logfilename, 'w')
@@ -286,7 +287,7 @@ class DwiPreprocessingClab():
             if self.verbose:
                 print('Telegram notifications are enabled')
             from send_telegram import sendtel
-            self.tg = sendtel() # use self.tg('msg') to send messages
+            self.tg = sendtel # use self.tg('msg') to send messages
         else:
             self.log_ok('INIT', 'Telegram setup file not found.')
             self.telegram = False
@@ -310,7 +311,7 @@ class DwiPreprocessingClab():
     def check_subid(self, sub):
         # Check if subject name contains sub- prefix
         # Can fix so no return value
-        if not sub.beginswith('sub-'):
+        if not sub.startswith('sub-'):
             self.log_warning(f'{sub}', f'Subject name {sub} does not contain sub- prefix. Adding it.')
             sub = 'sub-' + sub
         return sub
