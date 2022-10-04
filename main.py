@@ -21,6 +21,7 @@ class DwiPreprocessingClab():
         from dipy.io.image import load_nifti
         import subprocess as sp
         from datetime import datetime as dt
+        from shutil import copyfile, copytree, rmtree
 
         self.task = task # name of the task performed, used for logging. Can be anything but keep it brief
         self.mode = mode # mode of the pipeline to be run, either single subject, list of subjects or all subjects in a directory
@@ -47,6 +48,9 @@ class DwiPreprocessingClab():
         self.makedirs = makedirs
         self.dirname = dirname
         self.basename = basename
+        self.copyfile = copyfile
+        self.copytree = copytree
+        self.rmtree = rmtree
         self.sp = sp
         self.load_nifti = load_nifti
         self.dt = dt
@@ -63,8 +67,7 @@ class DwiPreprocessingClab():
             self.log_error('INIT', m)
             exit(m)
         else:
-            print(m)
-            self.log_info('INIT', m)
+            pass
         
         # Check if the input is correct
         s, m = self.check_inputs()
@@ -72,8 +75,7 @@ class DwiPreprocessingClab():
             self.log_error('INIT', m)
             exit(m)
         else:
-            print(m)
-            self.log_info('INIT', m)
+            pass
         
         # Check the tmp dir
         s, m = self.check_tmp_dir()
@@ -81,8 +83,7 @@ class DwiPreprocessingClab():
             self.log_error('INIT', m)
             exit(m)
         else:
-            print(m)
-            self.log_info('INIT', m)
+            pass
 
         # Check telegram - no return value
         self.check_telegram()
@@ -350,9 +351,10 @@ class DwiPreprocessingClab():
                 print('tmp directory already exists')
             return [True, 'tmp directory already exists']
 
-    def check_tmp_subdir(self, sub):
+    def check_subject_tmpdir(self, sub):
         # Check if subject directory exists in tmp
         # Create it if it does not exist
+        # delete it if it does exist and create it again
         # AND if mkdir fails, return False
         if not self.exists(self.join('tmp', sub)):
             self.log_info(f'{sub}', f'Subject {sub} directory not found in tmp. Creating it...')
@@ -369,71 +371,22 @@ class DwiPreprocessingClab():
             self.log_info(f'{sub}', f'Subject {sub} directory found in tmp.')
             if self.verbose:
                 print(f'Subject {sub} directory found in tmp')
-            # TODO - if found sub dir in tmp, should we delete it?
-            return [True, f'Subject {sub} directory found in tmp']
+            # remove it 
+            try:
+                self.remove(self.join('tmp', sub))
+                self.log_ok(f'{sub}', f'Subject {sub} directory removed from tmp.')
+            except:
+                self.log_error(f'{sub}', f'Subject {sub} directory could not be removed from tmp.')
+                return [False, f'Exit error. Could not remove subject {sub} directory from tmp']
 
-    def check_list_from_file(self):
-        # TODO - what this method should do, should it load the data to a list of subs?
-
-        # Should only be run if mode is list or l
-        # Return 1 is all is good, if fails return:
-        # Check if input exists, fail = 2
-        # Check if list is provided from a file, fail = 3
-        # Check if the input is a list of subjects, fail = 4
-        # If it is a list, check if the subjects are in the datain directory, fail = 5
-        # If it is a list, check if the subjects are in the dataout directory
-        
-        if not self.exists(self.input):
-            print(f'Input file not found: {self.input}')
-            self.log_error('INIT', f'Input file not found: {self.input}')
-            return [False, f'Input file not found: {self.input}']
-        else:
-            self.log_ok('INIT', f'Input file found: {self.input}')
-
-        if not self.isfile(self.input):
-            self.log_error('INIT', f'Input is not a file: {self.input}')
-            print(f'Input is not a file: {self.input}')
-            return [False, f'Input is not a file: {self.input}']
-        else:
-            self.log_ok('INIT', f'Input is a file: {self.input}')
-
-        if self.input.endswith('.txt') or self.input.endswith('.csv') or self.input.endswith('.tsv'):
-            self.log_ok('INIT', f'Input is a txt-readable file: {self.input}')
-            if self.verbose:
-                print('Input is a text-readable file')
-            
-            with open(self.input, 'r') as f:
-                subids = f.readlines()
-                subids = [subid.strip() for subid in subids]
-                print(f'List of subjects: {subids}')
-                for subid in subids:
-                    subid = self.check_subid(subid)
-            self.log_ok('INIT', f'List of {len(subids)} subjects loaded: {subids}')  
-            # Now all data has been checked in datain directory. 
-        else:
-            self.log_error('INIT', f'Input is not a txt-readable file: {self.input}')
-            print('Input is not a text-readable file')
-            return 4
-        
-        # If we get here, all is good
-        return 1
-    
-    def check_sub(self, sub):
-        # TODO
-        # Execute all checks for a subject
-        # before running anything for that subject
-
-        # Check if subject directory exists in indir
-        # Check if subject directory exists in outdir
-        # Check if subject directory exists in tmp/sub
-
-        pass
-
-    def check_list(self):
-        # TODO
-        # Execute all checks for a list of subjects
-        # before running anything for that subject
-        pass
+            # create it again
+            try:
+                self.mkdir(self.join('tmp', sub))
+                self.log_ok(f'{sub}', f'Subject {sub} directory created in tmp.')
+                return [True, f'Subject {sub} directory created in tmp']
+            except:
+                self.log_error(f'{sub}', f'Subject {sub} directory could not be created in tmp.')
+                return [False, f'Exit error. Could not create subject {sub} directory in tmp']
 
     ########################################
     # Helping methods ######################
@@ -688,7 +641,7 @@ class DwiPreprocessingClab():
         self.log_ok(f'{sub}', f'plotdwi4d: Made GIF: {gif}')
         return [True, f'GIF created: {gif}']
 
-    def plt_compare_4d(self, file1, file2, sub=None, vols=[0], slice=[50,50,50], \
+    def plt_compare_4d(self, file1, file2, out, sub=None, vols=[0], slice=[50,50,50], \
         cmap='gray', compare='sub'):
 
         # Plotting function that compares two 4D nifti files
@@ -761,152 +714,16 @@ class DwiPreprocessingClab():
                 return [False, 'Invalid comparison type']
 
             plt.tight_layout()
-            fig.savefig(args.out + f'_{v}.png', dpi=300)
+            fig.savefig(out + f'_{v}.png', dpi=300)
             plt.close(fig)
 
             self.log_ok(f'{sub}', f'plt_compare_4d: Made plots for {file1} and {file2}')
             return [True, f'Comparison plots created for {sub}']
         
-    
-        # Run GIBS QA
-        # Returns True or False depending on success and message for logging
-
-        # First check whether we have QA directory set and whether to run it at all:
-        # at at begging or with check_qa method
-        if not self.qadir or not self.runqa:
-            return [False, f'{sub} QA not run: QA directory not set or QA not set to run']
-
-        # if sub dir in does not exist, then create it - if exists, delete it and create it again
-        # if cannot create or delete, then return stop QA and return False
-        # also set self.qadir to False and self.runqa to False    
-        self.qa_plots_gibs = self.join(self.qadir, 'dwi', 'gibbs', sub)
-        if self.exists(self.qa_plots_gibs):
-            try:
-                self.rmtree(self.qa_plots_gibs)
-                self.makedirs(self.qa_plots_gibs)
-            except:
-                print(f'{sub}  Could not delete or create {self.qa_plots_gibs} directory. QA will not be run.')
-                self.qadir = False
-                self.runqa = False
-                return [False, f'{sub} QA not run: could not delete or create qa_plots_gibs directory: {self.qa_plots_gibs}']
-        else:
-            try:
-                self.makedirs(self.qa_plots_gibs)
-                if self.verbose:
-                    print(f'{sub} Created QA {self.qa_plots_gibs} directory.')
-            except:
-                print(f'{sub} Could not create {self.qa_plots_gibs} directory. QA will not be run.')
-                self.qadir = False
-                self.runqa = False
-                return [False, f'QA not run: could not create qa_plots_gibs directory: {self.qa_plots_gibs}']
-        
-        # QA direcectory is set and exists, so we can run QA
-
-        # check if we have all the files we need
-        ap_raw = self.exists(self.join('tmp', sub, f'{sub}_AP.nii'))
-        pa_raw = self.exists(self.join('tmp', sub, f'{sub}_PA.nii'))
-        ap_gib = self.exists(self.join('tmp', sub, f'{sub}_AP_gibbs.nii.gz'))
-        pa_gib = self.exists(self.join('tmp', sub, f'{sub}_PA_gibbs.nii.gz'))
-
-        ims = [ap_raw, pa_raw, ap_gib, pa_gib]
-
-        for n, i in enumerate(ims):
-            if not i:
-                print(f'{sub} QA Could not find {self.join("tmp", sub, f"{sub}_AP.nii")} cannot plot it.')
-            else:
-                if self.verbose:
-                    print(f'{sub} QA found {self.join("tmp", sub, f"{sub}_AP.nii")}.')
-
-        if not all(ims):
-            return [False, f'{sub} QA not run: could not find all the files needed for QA']
-
-        # if we have all the files, then run QA
-        # make gif for AP RAW and AP GIBBS
-
-        # Compare volumes for AP RAW and AP GIBBS
-
-        # Compare volumes for PA RAW and PA GIBBS
-
-        # Add to website
-
-        # end of QA GIBBS
-        
-        return True
 
     ########################################
     # DWI Preprocessing ####################
     ########################################
-
-    def dipygibbs(self, sub):
-        # Run Gibbs ringing correction, for each subject
-
-        # Perform subject checks
-        
-        self.log_subjectStart(sub, 'dipygibbs')
-
-        if self.verbose:
-            print(f'Performing subject checks for {sub}')
-        chstat, chmsg = self.perform_subject_checks(sub)
-        self.log_info(f'{sub}', f'Performing subject checks for {sub}: {chmsg}')
-        if not chstat:
-            print(chmsg)
-            self.log_subjectEnd(sub, 'dipygibbs')
-            return [0, f'Subject {sub} checks failed, subject not processed']
-        else:
-            if self.verbose:
-                print(chmsg)
-
-        # copy raw data to tmp folder
-        cpstat, cpmsg = self.cp_rawdata(sub) # will return status code
-
-        # if copied ok, 1 returned, then run gibbs
-        if cpstat:
-            if self.verbose:
-                # TODO - log
-                print(cpmsg)
-                print(f'Running gibbs ringing correction for {sub}')
-            self.log_info(f'{sub}', f'Running gibbs ringing correction for AP {sub}')
-            self.sp.run(f'dipy_gibbs_ringing {self.join("tmp", sub, sub + "_AP.nii")} {self.join("tmp", sub, sub + "_AP_gib.nii")}', shell=True)
-            self.log_info(f'{sub}', f'Running gibbs ringing correction for PA {sub}')
-            self.sp.run(f'dipy_gibbs_ringing {self.join("tmp", sub, sub + "_PA.nii")} {self.join("tmp", sub, sub + "_PA_gib.nii")}', shell=True)
-
-            # TODO QA
-        else:
-            # Copy was not successful, return error code
-            self.log_error(f'{sub}', f'Could not copy raw data for {sub}')
-            self.log_subjectEnd(sub, 'dipygibbs')
-            return [0, f'Copy of raw data for {sub} was not successful, subject not processed']
-
-        # TODO
-        # copy output to dataout folder
-
-        self.log_ok(f'{sub}', f'Gibbs ringing correction for {sub} completed successfully')
-        self.log_subjectEnd(sub, 'dipygibbs')
-        return [1, f'Gibbs ringing correction for {sub} was successful']
-
-    def dipyp2s(self, sub):
-        # TODO
-        # Run patch2self
-        pass
-
-    def fsleddy(self, sub):
-        # TODO
-        pass
-
-    def fsltopup(self, sub):
-        # TODO
-        pass
-
-    ########################################
-    # TopLevel Functions ###################
-    ########################################
-    # These are the functions that are called from the main script
-    # so user can evoke those without worrying about the details
-    # Note that, for example dipygibbs is called from the main script
-    # but it is not a top level function, because it is called from
-    # the gibbs function, which is a top level function -- function
-    # gibbs will take care of all the checks and logging, and then  
-    # call dipygibbs to do the actual work
 
     def gibbs(self):
         
@@ -942,9 +759,108 @@ class DwiPreprocessingClab():
         # Loop over subjects
         for i, sub in enumerate(self.subs):
             print(f'Processing subject {sub} ({i+1}/{len(self.subs)} for gibbs ringing correction')
-            self.dipygibbs(sub)
-        
+            
+            # Log start
+            self.log_subjectStart(sub, 'dipygibbs')
+
+            # Perform subject checks
+            # Check indir
+            s, m = self.check_indir(sub)
+            if not s:
+                self.log_error(sub, m)
+                print(m)
+                self.log_subjectEnd(sub, 'dipygibbs')
+                continue
+            else:
+                self.log_ok(sub, m)
+                pass
+
+            # Check if we have the subdir in tmp
+            s, m = self.check_subject_tmpdir(sub)
+            if not s:
+                self.log_error(sub, m)
+                print(m)
+                self.log_subjectEnd(sub, 'dipygibbs')
+                continue
+            else:
+                self.log_ok(sub, m)
+                pass
+            
+            # Copy the data
+            s, m = self.cp_rawdata(sub)
+            if not s:
+                self.log_error(sub, m)
+                print(m)
+                self.log_subjectEnd(sub, 'dipygibbs')
+                continue
+            else:
+                self.log_ok(sub, m)
+                pass
+
+            print(f'Running gibbs ringing correction for {sub}')
+            self.log_info(f'{sub}', f'Running gibbs ringing correction for AP {sub}')
+            self.sp.run(f'dipy_gibbs_ringing {self.join("tmp", sub, sub + "_AP.nii")} {self.join("tmp", sub, sub + "_AP_gib.nii.gz")}', shell=True)
+            self.log_info(f'{sub}', f'Running gibbs ringing correction for PA {sub}')
+            self.sp.run(f'dipy_gibbs_ringing {self.join("tmp", sub, sub + "_PA.nii")} {self.join("tmp", sub, sub + "_PA_gib.nii.gz")}', shell=True)
+
+            # QA
+            # create a directory for the QA plots
+            self.mkdir(self.join('tmp', sub, 'imgs'))
+            self.mkdir(self.join('tmp', sub, 'imgs', 'gibbs'))
+            # make gif, AP raw
+            self.gif_dwi_4d(self.join("tmp", sub, sub + "_AP.nii", self.join("tmp", sub, "imgs", "gibbs", f'{sub}_AP_raw.gif'), sub + " AP RAW"))
+            # make gif, AP gib
+            self.gif_dwi_4d(self.join("tmp", sub, sub + "_AP_gib.nii.gz", self.join("tmp", sub, "imgs", "gibbs", f'{sub}_AP_raw.gif'), sub + " AP RAW"))
+            
+            # compare volumes
+            v1 = self.join("tmp", sub, sub + "_AP.nii")
+            v2 = self.join("tmp", sub, sub + "_AP_gib.nii.gz")
+            oo = self.join("tmp", sub, "imgs", "gibbs", f"{sub}_AP_compare_raw_gibbs")
+            self.plt_compare_4d(file1=v1, file2=v2, sub=sub, out=oo, vols=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+
+            # copy output to dataout folder
+            if self.copy:
+                try:
+                    self.copytree(self.join('tmp', sub), self.join(self.dataout, sub))
+                    self.log_ok(f'{sub}', f'Copied {sub} to {self.dataout}')
+                except:
+                    self.log_error(f'{sub}', f'Could not copy data to dataout folder: {self.dataout}')
+                    print(f'Could not copy data to dataout folder')
+                    self.log_subjectEnd(sub, 'dipygibbs')
+                    continue
+            
+            if self.clean:
+                try:
+                    self.rmtree(self.join('tmp', sub))
+                    self.log_ok(f'{sub}', f'Removed tmp folder for {sub}')
+                except:
+                    self.log_error(f'{sub}', f'Could not remove tmp folder for {sub}')
+                    print(f'Could not remove tmp folder for {sub}')
+                    self.log_subjectEnd(sub, 'dipygibbs')
+                    continue
+
+            self.log_ok(f'{sub}', f'Gibbs ringing correction for {sub} completed successfully')
+            self.log_subjectEnd(sub, 'dipygibbs')
+
+        # Loop end
         if self.telegram:
             self.log_ok('ALL', f'Gibbs ringing correction completed successfully for {len(self.subs)} subjects')
-            self.tg('Gibbs ringing correction completed for all subjects')
+            self.tg(f'Gibbs ringing correction completed for all {len(self.subs)} subjects')
+
+
+    def dipyp2s(self, sub):
+        # TODO
+        # Run patch2self
+        pass
+
+    def fsleddy(self, sub):
+        # TODO
+        pass
+
+    def fsltopup(self, sub):
+        # TODO
+        pass
+
+
+    
 
