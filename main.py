@@ -17,7 +17,6 @@ class DwiPreprocessingClab():
         qadir=None, threads=-1, telegram=True, verbose=False, clean=True, copy=True):
         
         # Imports
-        from os import isfile
         from os.path import join, exists, dirname, split, basename, isfile, isdir
         from os import mkdir, makedirs, remove
         from os import listdir as ls
@@ -55,6 +54,8 @@ class DwiPreprocessingClab():
 
         # init log
         loginit = self.log(self.task)
+
+
 
     ########################################
     # Checking methods #####################
