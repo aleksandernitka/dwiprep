@@ -177,8 +177,8 @@ class DwiPreprocessingClab():
     def log_subdump(self, subjects):
         if self.log:
             # Dumps the list of subjects to the file
-            self.subdumpfile = open(self.join('logs', f'{self.timestamp}_{self.task.replace(" ","").lower()[:10]}_subjects.log'), 'w')
-            self.subdumpfile.write(subjects)
+            self.subdumpfile = open(self.join('logs', f'{self.logtimestamp}_{self.task.replace(" ","").lower()[:10]}_subjects.log'), 'w')
+            self.subdumpfile.write(str(subjects))
             self.subdumpfile.close()
 
     ########################################
@@ -910,16 +910,6 @@ class DwiPreprocessingClab():
 
     def gibbs(self):
         
-        # Perform initial checks
-        [s, m] = self.check_start()
-        if not s:
-            print(m)
-            self.log_error('INIT', m)
-            exit(1)
-        else:
-            print(m)
-            self.log_ok('INIT', m)
-        
         # Check if QA required
         [s, m] = self.check_qa(dwi=True)
         if not s:
@@ -947,7 +937,7 @@ class DwiPreprocessingClab():
         self.log_info('INIT', f'{len(self.subs)} subjects to process for gibbs ringing correction, taks name: {self.task}')
 
         # dump the list of subjects to process to a file
-        self.log_subdump(self.subs, self.task)
+        self.log_subdump(self.subs)
 
         # Loop over subjects
         for i, sub in enumerate(self.subs):
