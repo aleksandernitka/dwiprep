@@ -262,8 +262,8 @@ class DwiPreprocessingClab():
                     print('Input recognised. All subjects mode.')
                 self.log_ok('INIT', 'Input recognised; all subjects mode.')
                 # Does the indir exist at all? If not - exit
-                if not self.isdir(self.input):
-                    self.log_error('INIT', f'Exit Error. Input directory {self.input} not found.')
+                if not self.isdir(self.datain):
+                    self.log_error('INIT', f'Exit Error. Input directory {self.datain} not found.')
                     return [False, f'Exit Error. Input directory not found {self.datain}.']
                 else:
                     self.log_ok('INIT', 'Input directory found.')
