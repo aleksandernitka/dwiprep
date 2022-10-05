@@ -406,7 +406,7 @@ class DwiPreprocessingClab():
         try:
             bfs = [f for f in self.ls(self.join(self.datain, sub, 'dwi')) if '.DS_' not in f]
         except:
-            self.log.error(f'{sub}', f'cannot find dwi dir for the subject')
+            self.log_error(f'{sub}', f'cannot find dwi dir for the subject')
             return [False, f'Cannot find DWI dir for this subject']
 
         # get all _AP_ files
