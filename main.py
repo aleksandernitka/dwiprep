@@ -403,7 +403,11 @@ class DwiPreprocessingClab():
         import shutil
 
         # get all dwi files for pp
-        bfs = [f for f in self.ls(self.join(self.datain, sub, 'dwi')) if '.DS_' not in f]
+        try:
+            bfs = [f for f in self.ls(self.join(self.datain, sub, 'dwi')) if '.DS_' not in f]
+        except:
+            self.log.error(f'{sub}', f'cannot find dwi dir for the subject')
+            return [False, f'Cannot find DWI dir for this subject']
 
         # get all _AP_ files
         fsdwi = [f for f in bfs if '_SBRef_' not in f and '_ADC_' not in f and '_TRACEW_' not in f and '_ColFA_' not in f and '_FA_' not in f]
@@ -815,7 +819,7 @@ class DwiPreprocessingClab():
             if self.copy:
                 try:
                     #self.copytree(self.join('tmp', sub), self.join(self.dataout, sub))
-                    self.sp(f"cp -r {self.join('tmp', sub)} {self.join(self.dataout, sub)}", shell=True)
+                    self.sp.run(f"cp -r {self.join('tmp', sub)} {self.join(self.dataout, sub)}", shell=True)
                     self.log_ok(f'{sub}', f'Copied {sub} to {self.dataout}')
                 except:
                     self.log_error(f'{sub}', f'Could not copy data to dataout folder: {self.dataout}')
@@ -825,7 +829,7 @@ class DwiPreprocessingClab():
             
             if self.clean:
                 try:
-                    self.sp(f'rm -rf {self.join("tmp", sub)}', shell=True)
+                    self.sp.run(f'rm -rf {self.join("tmp", sub)}', shell=True)
                     self.log_ok(f'{sub}', f'Removed tmp folder for {sub}')
                 except:
                     self.log_error(f'{sub}', f'Could not remove tmp folder for {sub}')
