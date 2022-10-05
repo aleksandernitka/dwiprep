@@ -824,7 +824,7 @@ class DwiPreprocessingClab():
             
             if self.clean:
                 try:
-                    self.rmtree(self.join('tmp', sub))
+                    self.sp(f'rm -rf {self.join('tmp', sub)}')
                     self.log_ok(f'{sub}', f'Removed tmp folder for {sub}')
                 except:
                     self.log_error(f'{sub}', f'Could not remove tmp folder for {sub}')
