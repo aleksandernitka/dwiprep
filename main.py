@@ -814,7 +814,8 @@ class DwiPreprocessingClab():
             # copy output to dataout folder
             if self.copy:
                 try:
-                    self.copytree(self.join('tmp', sub), self.join(self.dataout, sub))
+                    #self.copytree(self.join('tmp', sub), self.join(self.dataout, sub))
+                    self.sp(f"cp -r {self.join('tmp', sub)} {self.join(self.dataout, sub)}", shell=True)
                     self.log_ok(f'{sub}', f'Copied {sub} to {self.dataout}')
                 except:
                     self.log_error(f'{sub}', f'Could not copy data to dataout folder: {self.dataout}')
@@ -824,7 +825,7 @@ class DwiPreprocessingClab():
             
             if self.clean:
                 try:
-                    self.sp(f'rm -rf {self.join('tmp', sub)}')
+                    self.sp(f'rm -rf {self.join("tmp", sub)}', shell=True)
                     self.log_ok(f'{sub}', f'Removed tmp folder for {sub}')
                 except:
                     self.log_error(f'{sub}', f'Could not remove tmp folder for {sub}')
