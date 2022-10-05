@@ -752,6 +752,12 @@ class DwiPreprocessingClab():
 
         # Loop over subjects
         for i, sub in enumerate(self.subs):
+
+            if self.exists(self.join(self.outdir, sub)):
+                self.log_warning(f'{sub}', f'gibbs: Output directory already exists, skipping subject')
+                print(f'Output directory already exists, skipping subject: {sub}')
+                continue
+            
             print(f'Processing subject {sub} ({i+1}/{len(self.subs)} for gibbs ringing correction)')
             
             # Log start
