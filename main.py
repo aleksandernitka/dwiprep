@@ -1,3 +1,4 @@
+
 class DwiPreprocessingClab():
 
     # Main analysis class for the MRI processing pipeline
@@ -13,16 +14,18 @@ class DwiPreprocessingClab():
 
     def __init__(self, task, mode, input=None, datain=None, dataout=None, \
         threads=-1, telegram=True, verbose=False, clean=True, \
-        copy=True, log=True, check_container=True):
+        copy=True, log=True, check_container=True, n_coils=32):
         
         # Imports
         from os.path import join, exists, dirname, split, basename, isfile, isdir
         from os import mkdir, makedirs, remove
         from os import listdir as ls
-        from dipy.io.image import load_nifti
+        from dipy.io.image import load_nifti, save_nifti
         import subprocess as sp
         from datetime import datetime as dt
         from shutil import copyfile, copytree, rmtree
+        from fun.eta import Eta
+
 
         self.task = task # name of the task performed, used for logging. Can be anything but keep it brief
         self.mode = mode # mode of the pipeline to be run, either single subject, list of subjects or all subjects in a directory
@@ -35,6 +38,7 @@ class DwiPreprocessingClab():
         self.clean = clean # whether to clean up the tmp folder after processing
         self.copy = copy # whether to copy the data from tmp to the dataout folder
         self.log = log # whether to log the processing
+        self.n_coils = n_coils # number of coils used for the acquisition
 
         # Also mount some key dependencies for easy access
         self.ls = ls
@@ -53,6 +57,7 @@ class DwiPreprocessingClab():
         self.rmtree = rmtree
         self.sp = sp
         self.load_nifti = load_nifti
+        self.save_nifti = save_nifti
         self.dt = dt
 
         # Start logging
@@ -435,19 +440,6 @@ class DwiPreprocessingClab():
             self.log_ok(f'{sub}', f'Copied raw data to tmp folder: {f}')
         return [True, f'Copied raw data for {sub} to tmp folder']
 
-    def cp_derdata(self, sub, files):
-        # TODO
-        # Copy derived data to tmp folder
-        # Specify file to copy, without the 'sub-00000_' prefix
-        pass
-    
-    ########################################
-    # QA methods ###########################
-    ########################################
-    # Set of QA Methods to check if the data is good enough.
-    # Should begin with check_qa method that will set the stage for the rest of the methods
-    # Should return True or False depending on the success of the QA
-
     def check_qa(self, dwi):
         
         # set of common methods for all QA things;
@@ -721,28 +713,7 @@ class DwiPreprocessingClab():
         # This has been disabled as there was a problem with the QApath
         # also, did not want to spend too much time on it. 
         # plots are being created but not being moved the the QA dir, this can be done later.
-        '''        
-        [s, m] = self.check_qa(dwi=True)
-        if not s:
-            # we will not run QA, but still can run the processing
-            print(m)
-            self.log_warning('INIT', m)
-            no_qa_continue = input('Do you want to continue without QA? (y/n): ')
-            if no_qa_continue == 'y':
-                self.log_warning('INIT', 'User chose to continue without QA')
-                print('Continuing without QA')
-            if no_qa_continue == 'n':
-                self.log_warning('INIT', 'User chose to exit without QA')
-                print('Exiting')
-                exit(1)
-            else:
-                self.log_warning('INIT', 'User did not choose y or n, exiting')
-                print('Invalid input, exiting')
-                exit(1)
-        else:
-            self.log_ok('INIT', m)
-            print(m)
-        '''
+        
         # Check if we have subjects to process
         print(f'{len(self.subs)} subjects to process')
         self.log_info('INIT', f'{len(self.subs)} subjects to process for gibbs ringing correction, taks name: {self.task}')
@@ -852,19 +823,214 @@ class DwiPreprocessingClab():
             self.tg(f'Gibbs ringing correction completed for all {len(self.subs)} subjects')
 
 
-    def dipyp2s(self, sub):
-        # TODO
-        # Run patch2self
-        pass
+    def patch2self(self):
 
-    def fsleddy(self, sub):
-        # TODO
-        pass
+        from dipy.core.gradients import gradient_table
+        from dipy.denoise.patch2self import patch2self
+        from dipy.denoise.noise_estimate import estimate_sigma
+        import matplotlib.pyplot as plt
+        import numpy as np
+        
+        # Check if we have subjects to process
+        print(f'{len(self.subs)} subjects to process')
+        self.log_info('INIT', f'{len(self.subs)} subjects to process for patch2self denoise, taks name: {self.task}')
 
-    def fsltopup(self, sub):
-        # TODO
-        pass
+        # Loop over subjects
+        # dump the list of subjects to process to a file
+        self.log_subdump(self.subs)
+
+        # Loop over subjects
+        for i, sub in enumerate(self.subs): 
+
+            # Run patch2self
+            # if dir exists in derivatives
+
+            # Log start
+            self.log_subjectStart(sub, 'dipyp2s')
+
+            if not self.exists(self.join(self.dataout, sub)):
+                self.log_warning(f'{sub}', f'patch2self: Output directory does not exist, skipping subject')
+                print(f'Output directory does not exist, skipping subject: {sub}')
+                continue
+            
+            # make tmp dirs
+            self.mkdir(self.join('tmp', sub))
+            self.mkdir(self.join('tmp', sub, 'imgs'))
+            self.mkdir(self.join('tmp', sub, 'imgs', 'patch2self'))
+            self.mkdir(self.join('tmp', sub, 'sigma_noise'))
+
+            # copy required files
+            files = ['_AP.bval', '_AP.bvec', '_AP_gib.nii.gz', '_PA_gib.nii.gz', '_AP.json', '_AP.nii', '_PA.nii']    
+            for f in files:
+                try:
+                    self.copyfile(self.join(self.dataout, sub, sub+f), self.join('tmp', sub, sub+f))
+                    self.log_ok(f'{sub}', f'patch2self: Copied {sub+f} to tmp folder')
+                except:
+                    self.log_error(f'{sub}', f'patch2self: Could not copy file {f}')
+                    print(f'Could not copy file {f}')
+                    continue
+            
+            # Load gradient table
+            try:
+                gtab = gradient_table(self.join('tmp', sub, sub + '_AP.bval'), self.join('tmp', sub, sub + '_AP.bvec'))
+                txt = f'bvals shape {gtab.bvals.shape}, min = {gtab.bvals.min()}, max = {gtab.bvals.max()} with {len(np.unique(gtab.bvals))} unique values: {np.unique(gtab.bvals)}bvecs shape {gtab.bvecs.shape}, min = {gtab.bvecs.min()}, max = {gtab.bvecs.max()}'
+                self.log_info(f'{sub}', f'patch2self: {txt}')
+                # save b0s mask as numpy array  - which volumes are b0 in AP (bool)
+                np.save(f'tmp/{sub}_b0mask.npy', gtab.b0s_mask)
+            except:
+                self.log_error(f'{sub}', f'patch2self: Could not load gradient table')
+                print(f'{sub} Could not load gradient table')
+                continue
+            
+            # Load data, raw and gibbs
+            # Load raw for sigma estimation
+            try:
+                ap_raw, __ = self.load_nifti(self.join('tmp', sub, sub + '_AP.nii'))
+                pa_raw, __ = self.load_nifti(self.join('tmp', sub, sub + '_PA.nii'))
+                # Load gibbs, for sigma and patch2self
+                ap_gib, ap_gib_aff = self.load_nifti(self.join('tmp', sub, f'{sub}_AP_gib.nii'))
+                pa_gib, pa_gib_aff = self.load_nifti(self.join('tmp', sub, f'{sub}_PA_gib.nii'))
+                ap_bval = np.loadtxt(self.join('tmp', sub, f'{sub}_AP.bval'))
+                pa_bval = np.array([5.,5.,5.,5.,5.])
+            except:
+                self.log_error(f'{sub}', f'patch2self: Could not load data')
+                print(f'{sub} Could not load data')
+                continue
+
+            # Estimate sigma for raw volumes
+            try:
+                s_ap_raw = estimate_sigma(ap_raw, N = self.n_coils)
+                s_pa_raw = estimate_sigma(pa_raw, N = self.n_coils)
+                np.save(self.join('tmp', sub, 'sigma_noise', f'{sub}_AP_raw_sigma.npy'), s_ap_raw)
+                np.save(self.join('tmp', sub, 'sigma_noise', f'{sub}_PA_raw_sigma.npy'), s_pa_raw)
+            except:
+                self.log_error(f'{sub}', f'patch2self: Could not estimate sigma for raw volumes')
+                print(f'{sub} Could not estimate sigma for raw volumes')
+                continue
+
+            # Estimate sigma for gibbs volumes
+            try:
+                s_ap_gib = estimate_sigma(ap_gib, N = self.n_coils)
+                s_pa_gib = estimate_sigma(pa_gib, N = self.n_coils)
+                np.save(self.join('tmp', sub, 'sigma_noise', f'{sub}_AP_gib_sigma.npy'), s_ap_gib)
+                np.save(self.join('tmp', sub, 'sigma_noise', f'{sub}_PA_gib_sigma.npy'), s_pa_gib)
+            except:
+                self.log_error(f'{sub}', f'patch2self: Could not estimate sigma for gibbs volumes')
+                print(f'{sub} Could not estimate sigma for gibbs volumes')
+                continue
+            
+            # run patch2self on AP
+            try:
+                ap_p2s = patch2self(ap_gib, ap_bval, model='ols', shift_intensity=True, \
+                    clip_negative_vals=False, b0_threshold=50, verbose=True)
+                self.log_ok(f'{sub}', f'patch2self: AP patch2self completed successfully')
+            except:
+                self.log_error(f'{sub}', f'patch2self: AP patch2self failed')
+                print(f'{sub} AP patch2self failed')
+                continue
+            
+            # run patch2self on PA
+            try:
+                pa_p2s = patch2self(pa_gib, pa_bval, model='ols', shift_intensity=True, \
+                    clip_negative_vals=False, b0_threshold=50, verbose=True)
+                self.log_ok(f'{sub}', f'patch2self: PA patch2self completed successfully')
+            except:
+                self.log_error(f'{sub}', f'patch2self: PA patch2self failed')
+                print(f'{sub} PA patch2self failed')
+                continue
+            
+            # estimate sigma for AP and PA
+            try:
+                s_ap_p2s = estimate_sigma(ap_p2s, N = self.n_coils)
+                s_pa_p2s = estimate_sigma(pa_p2s, N = self.n_coils)
+                np.save(self.join('tmp', sub, 'sigma_noise', f'{sub}_AP_p2s_sigma.npy'), s_ap_p2s)
+                np.save(self.join('tmp', sub, 'sigma_noise', f'{sub}_PA_p2s_sigma.npy'), s_pa_p2s)
+            except:
+                self.log_error(f'{sub}', f'patch2self: Could not estimate sigma for patch2self volumes')
+                print(f'{sub} Could not estimate sigma for patch2self volumes')
+                continue
+            
+            # save denoised vols
+            # AP
+            try:
+                self.save_nifti(self.join('tmp', sub, sub+'_AP_p2s.nii.gz'), ap_p2s, ap_gib_aff)
+                self.log_ok(f'{sub}', f'patch2self: AP patch2self saved successfully')
+            except:
+                self.log_error(f'{sub}', f'patch2self: AP patch2self save failed')
+                print(f'{sub} AP patch2self save failed')
+                continue
+            # PA
+            try:
+                self.save_nifti(self.join('tmp', sub, sub+'_PA_p2s.nii.gz'), pa_p2s, pa_gib_aff)
+                self.log_ok(f'{sub}', f'patch2self: PA patch2self saved successfully')
+            except:
+                self.log_error(f'{sub}', f'patch2self: PA patch2self save failed')
+                print(f'{sub} PA patch2self save failed')
+                continue
+            
+            self.log_info(f'{sub}', f'patch2self: plotting all volumes')
+            # plot volumes - noise residuals
+            xcmp = 'gray'
+            s = 42
+            for d in ['AP', 'PA']:
+
+                for i, vs in enumerate(range(0, ap_p2s.shape[3])):
+                    if d == 'AP':
+                        bvl = ap_bval
+                        gib = ap_gib[:,:,s,vs]
+                        raw = ap_raw[:,:,s,vs]
+                        p2s = ap_p2s[:,:,s,vs]
+                        sgib = s_ap_gib
+                        sraw = s_ap_raw
+                        sp2s = s_ap_p2s
+                    else:
+                        bvl = pa_bval
+                        gib = pa_gib[:,:,s,vs]
+                        raw = pa_raw[:,:,s,vs]
+                        p2s = pa_p2s[:,:,s,vs]
+                        sgib = s_pa_gib
+                        sraw = s_pa_raw
+                        sp2s = s_pa_p2s
 
 
-    
+                    # computes the residuals
+                    rms_gibp2s = np.sqrt(abs((gib - p2s) ** 2))
+                    rms_rawp2s = np.sqrt(abs((raw - p2s) ** 2))
+
+                    fig1, ax = plt.subplots(2, 3, figsize=(12, 12),subplot_kw={'xticks': [], 'yticks': []})
+                
+                    fig1.subplots_adjust(hspace=0.05, wspace=0.05)
+                    fig1.suptitle(f'{sub} {d} vol={vs} bval={int(bvl[i])}', fontsize =20)
+
+                    # Raw image
+                    ax.flat[0].imshow(raw.T, cmap=xcmp, interpolation='none',origin='lower')
+                    ax.flat[0].set_title('Raw, ' + r'$\sigma_{noise}$' + f' = {round(sraw[i])}')
+                    # Gibbs image
+                    ax.flat[1].imshow(gib.T, cmap=xcmp, interpolation='none',origin='lower')
+                    ax.flat[1].set_title('Gibbs, ' + r'$\sigma_{noise}$' + f' = {round(sgib[i])}')
+                    # p2s image
+                    ax.flat[2].imshow(p2s.T, cmap=xcmp, interpolation='none',origin='lower')
+                    ax.flat[2].set_title('P2S, ' + r'$\sigma_{noise}$' + f' = {round(sp2s[i])}')
+                    # Raw - p2s
+                    ax.flat[3].imshow(rms_rawp2s.T, cmap=xcmp, interpolation='none',origin='lower')
+                    ax.flat[3].set_title('Raw - P2S')
+                    # Gibbs - p2s
+                    ax.flat[4].imshow(rms_gibp2s.T, cmap=xcmp, interpolation='none',origin='lower')
+                    ax.flat[4].set_title('Gibbs - P2S')
+                    
+                    sfig = self.join('tmp', sub, 'imgs', 'patch2self', f'{sub}_{b}_v-{vs}.png')
+                    fig1.savefig(sfig)
+
+                    plt.close()
+
+            self.log_ok(f'{sub}', f'patch2self: plotting all volumes completed successfully')
+
+            # move all files to derivatives
+            # TODO
+
+            self.log_subjectEnd(sub, 'dipyp2s')
+        
+        if self.telegram:
+            self.log_ok('ALL', f'Patch2Self completed successfully for {len(self.subs)} subjects')
+            self.tg(f'Patch2Self completed for all {len(self.subs)} subjects')
 
