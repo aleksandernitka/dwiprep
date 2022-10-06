@@ -24,7 +24,6 @@ class DwiPreprocessingClab():
         import subprocess as sp
         from datetime import datetime as dt
         from shutil import copyfile, copytree, rmtree
-        from fun.eta import Eta
 
 
         self.task = task # name of the task performed, used for logging. Can be anything but keep it brief
@@ -830,6 +829,8 @@ class DwiPreprocessingClab():
         from dipy.denoise.noise_estimate import estimate_sigma
         import matplotlib.pyplot as plt
         import numpy as np
+
+        from fun.eta import Eta
         
         # Check if we have subjects to process
         print(f'{len(self.subs)} subjects to process')
@@ -838,6 +839,9 @@ class DwiPreprocessingClab():
         # Loop over subjects
         # dump the list of subjects to process to a file
         self.log_subdump(self.subs)
+
+        # Timer and ETA
+        eta_p2s = Eta(mode='median', N = len(self.subs))
 
         # Loop over subjects
         for i, sub in enumerate(self.subs): 
@@ -853,6 +857,9 @@ class DwiPreprocessingClab():
                 print(f'Output directory does not exist, skipping subject: {sub}')
                 continue
             
+            # Timer update, return ETA to log
+            self.log_info(sub, eta_p2s.update())
+
             # make tmp dirs
             self.mkdir(self.join('tmp', sub))
             self.mkdir(self.join('tmp', sub, 'imgs'))
