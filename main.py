@@ -864,6 +864,10 @@ class DwiPreprocessingClab():
             
             # Timer update, return ETA to log
             self.log_info(sub, eta_p2s.update())
+<<<<<<< HEAD
+=======
+            
+>>>>>>> 0e4d6fcfc4c65becad40c60ad08fd825f4f43bf4
             # make tmp dirs
             self.mkdir(self.join('tmp', sub))
             self.mkdir(self.join('tmp', sub, 'imgs'))
@@ -1045,7 +1049,11 @@ class DwiPreprocessingClab():
                     plt.close()
 
             self.log_ok(f'{sub}', f'patch2self: plotting all volumes completed successfully')
+<<<<<<< HEAD
 
+=======
+            
+>>>>>>> 0e4d6fcfc4c65becad40c60ad08fd825f4f43bf4
             # move all files to derivatives
             if self.copy:
                 self.log_info(f'{sub}', f'patch2self: copying files to derivatives')
