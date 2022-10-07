@@ -828,13 +828,13 @@ class DwiPreprocessingClab():
         from dipy.core.gradients import gradient_table
         from dipy.denoise.patch2self import patch2self
         from dipy.denoise.noise_estimate import estimate_sigma
-        from dipy.denoise.denspeed import determine_num_threads
+        # from dipy.denoise.denspeed import determine_num_threads
         import matplotlib.pyplot as plt
         import numpy as np
         from fun.eta import Eta
 
         # set number of threads
-        determine_num_threads(self.threads)
+        # determine_num_threads(self.threads)
         
         # Check if we have subjects to process
         print(f'{len(self.subs)} subjects to process')
@@ -889,7 +889,7 @@ class DwiPreprocessingClab():
                 txt = f'bvals shape {gtab.bvals.shape}, min = {gtab.bvals.min()}, max = {gtab.bvals.max()} with {len(np.unique(gtab.bvals))} unique values: {np.unique(gtab.bvals)}bvecs shape {gtab.bvecs.shape}, min = {gtab.bvecs.min()}, max = {gtab.bvecs.max()}'
                 self.log_info(f'{sub}', f'patch2self: {txt}')
                 # save b0s mask as numpy array  - which volumes are b0 in AP (bool)
-                np.save(f'tmp/{sub}_b0mask.npy', gtab.b0s_mask)
+                np.save(self.join('tmp', sub, f'{sub}_b0mask.npy'), gtab.b0s_mask)
             except:
                 self.log_error(f'{sub}', f'patch2self: Could not load gradient table')
                 print(f'{sub} Could not load gradient table')
@@ -902,8 +902,8 @@ class DwiPreprocessingClab():
                 ap_raw, __ = self.load_nifti(self.join('tmp', sub, sub + '_AP.nii'))
                 pa_raw, __ = self.load_nifti(self.join('tmp', sub, sub + '_PA.nii'))
                 # Load gibbs, for sigma and patch2self
-                ap_gib, ap_gib_aff = self.load_nifti(self.join('tmp', sub, f'{sub}_AP_gib.nii'))
-                pa_gib, pa_gib_aff = self.load_nifti(self.join('tmp', sub, f'{sub}_PA_gib.nii'))
+                ap_gib, ap_gib_aff = self.load_nifti(self.join('tmp', sub, sub + '_AP_gib.nii.gz'))
+                pa_gib, pa_gib_aff = self.load_nifti(self.join('tmp', sub, sub + '_PA_gib.nii.gz'))
                 ap_bval = np.loadtxt(self.join('tmp', sub, f'{sub}_AP.bval'))
                 pa_bval = np.array([5.,5.,5.,5.,5.])
             except:
@@ -1039,7 +1039,7 @@ class DwiPreprocessingClab():
                     ax.flat[4].imshow(rms_gibp2s.T, cmap=xcmp, interpolation='none',origin='lower')
                     ax.flat[4].set_title('Gibbs - P2S')
                     
-                    sfig = self.join('tmp', sub, 'imgs', 'patch2self', f'{sub}_{b}_v-{vs}.png')
+                    sfig = self.join('tmp', sub, 'imgs', 'patch2self', f'{sub}_{d}_v-{vs}.png')
                     fig1.savefig(sfig)
 
                     plt.close()
