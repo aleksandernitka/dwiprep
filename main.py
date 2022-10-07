@@ -823,14 +823,18 @@ class DwiPreprocessingClab():
 
 
     def patch2self(self):
+        # Runs patch to self denoising on the data
 
         from dipy.core.gradients import gradient_table
         from dipy.denoise.patch2self import patch2self
         from dipy.denoise.noise_estimate import estimate_sigma
+        from dipy.denoise.denspeed import determine_num_threads
         import matplotlib.pyplot as plt
         import numpy as np
-
         from fun.eta import Eta
+
+        # set number of threads
+        determine_num_threads(self.threads)
         
         # Check if we have subjects to process
         print(f'{len(self.subs)} subjects to process')
@@ -855,6 +859,7 @@ class DwiPreprocessingClab():
             if not self.exists(self.join(self.dataout, sub)):
                 self.log_warning(f'{sub}', f'patch2self: Output directory does not exist, skipping subject')
                 print(f'Output directory does not exist, skipping subject: {sub}')
+                self.log_subjectEnd(sub, 'dipyp2s')
                 continue
             
             # Timer update, return ETA to log
@@ -875,6 +880,7 @@ class DwiPreprocessingClab():
                 except:
                     self.log_error(f'{sub}', f'patch2self: Could not copy file {f}')
                     print(f'Could not copy file {f}')
+                    self.log_subjectEnd(sub, 'dipyp2s')
                     continue
             
             # Load gradient table
@@ -887,6 +893,7 @@ class DwiPreprocessingClab():
             except:
                 self.log_error(f'{sub}', f'patch2self: Could not load gradient table')
                 print(f'{sub} Could not load gradient table')
+                self.log_subjectEnd(sub, 'dipyp2s')
                 continue
             
             # Load data, raw and gibbs
@@ -902,6 +909,7 @@ class DwiPreprocessingClab():
             except:
                 self.log_error(f'{sub}', f'patch2self: Could not load data')
                 print(f'{sub} Could not load data')
+                self.log_subjectEnd(sub, 'dipyp2s')
                 continue
 
             # Estimate sigma for raw volumes
@@ -913,6 +921,7 @@ class DwiPreprocessingClab():
             except:
                 self.log_error(f'{sub}', f'patch2self: Could not estimate sigma for raw volumes')
                 print(f'{sub} Could not estimate sigma for raw volumes')
+                self.log_subjectEnd(sub, 'dipyp2s')
                 continue
 
             # Estimate sigma for gibbs volumes
@@ -924,6 +933,7 @@ class DwiPreprocessingClab():
             except:
                 self.log_error(f'{sub}', f'patch2self: Could not estimate sigma for gibbs volumes')
                 print(f'{sub} Could not estimate sigma for gibbs volumes')
+                self.log_subjectEnd(sub, 'dipyp2s')
                 continue
             
             # run patch2self on AP
@@ -934,6 +944,7 @@ class DwiPreprocessingClab():
             except:
                 self.log_error(f'{sub}', f'patch2self: AP patch2self failed')
                 print(f'{sub} AP patch2self failed')
+                self.log_subjectEnd(sub, 'dipyp2s')
                 continue
             
             # run patch2self on PA
@@ -955,6 +966,7 @@ class DwiPreprocessingClab():
             except:
                 self.log_error(f'{sub}', f'patch2self: Could not estimate sigma for patch2self volumes')
                 print(f'{sub} Could not estimate sigma for patch2self volumes')
+                self.log_subjectEnd(sub, 'dipyp2s')
                 continue
             
             # save denoised vols
@@ -965,6 +977,7 @@ class DwiPreprocessingClab():
             except:
                 self.log_error(f'{sub}', f'patch2self: AP patch2self save failed')
                 print(f'{sub} AP patch2self save failed')
+                self.log_subjectEnd(sub, 'dipyp2s')
                 continue
             # PA
             try:
@@ -973,6 +986,7 @@ class DwiPreprocessingClab():
             except:
                 self.log_error(f'{sub}', f'patch2self: PA patch2self save failed')
                 print(f'{sub} PA patch2self save failed')
+                self.log_subjectEnd(sub, 'dipyp2s')
                 continue
             
             self.log_info(f'{sub}', f'patch2self: plotting all volumes')
@@ -1033,7 +1047,30 @@ class DwiPreprocessingClab():
             self.log_ok(f'{sub}', f'patch2self: plotting all volumes completed successfully')
 
             # move all files to derivatives
-            # TODO
+            if self.copy:
+                self.log_info(f'{sub}', f'patch2self: copying files to derivatives')
+                try:
+                    self.copytree(self.join('tmp', sub, 'imgs', 'patch2self'), self.join(self.dataout, sub, 'imgs'))
+                    self.copytree(self.join('tmp', sub, 'sigma_noise'), self.join(self.dataout, sub, 'sigma_noise'))
+                    self.copyfile(self.join('tmp', sub, sub+'_AP_p2s.nii.gz'), self.join(self.dataout, sub, sub+'_AP_p2s.nii.gz'))
+                    self.copyfile(self.join('tmp', sub, sub+'_PA_p2s.nii.gz'), self.join(self.dataout, sub, sub+'_PA_p2s.nii.gz'))
+                    self.log_ok(f'{sub}', f'patch2self: files copied to derivatives')
+                except:
+                    self.log_error(f'{sub}', f'patch2self: files not copied to derivatives')
+                    print(f'{sub} files not copied to derivatives')
+                    self.log_subjectEnd(sub, 'dipyp2s')
+                    continue
+
+            if self.clean:
+                self.log_info(f'{sub}', f'patch2self: cleaning tmp folder')
+                try:
+                    self.rmtree(self.join('tmp', sub))
+                    self.log_ok(f'{sub}', f'patch2self: tmp folder cleaned')
+                except:
+                    self.log_error(f'{sub}', f'patch2self: tmp folder not cleaned')
+                    print(f'{sub} tmp folder not cleaned')
+                    self.log_subjectEnd(sub, 'dipyp2s')
+                    continue
 
             self.log_subjectEnd(sub, 'dipyp2s')
         
