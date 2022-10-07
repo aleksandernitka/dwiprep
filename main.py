@@ -995,28 +995,29 @@ class DwiPreprocessingClab():
             s = 42
             for d in ['AP', 'PA']:
 
-                for i, vs in enumerate(range(0, ap_p2s.shape[3])):
-                    if d == 'AP':
-                        bvl = ap_bval
-                        gib = ap_gib[:,:,s,vs]
-                        raw = ap_raw[:,:,s,vs]
-                        p2s = ap_p2s[:,:,s,vs]
-                        sgib = s_ap_gib
-                        sraw = s_ap_raw
-                        sp2s = s_ap_p2s
-                    else:
-                        bvl = pa_bval
-                        gib = pa_gib[:,:,s,vs]
-                        raw = pa_raw[:,:,s,vs]
-                        p2s = pa_p2s[:,:,s,vs]
-                        sgib = s_pa_gib
-                        sraw = s_pa_raw
-                        sp2s = s_pa_p2s
+                if d == 'AP':
+                    bvl = ap_bval
+                    gib = ap_gib
+                    raw = ap_raw
+                    p2s = ap_p2s
+                    sgib = s_ap_gib
+                    sraw = s_ap_raw
+                    sp2s = s_ap_p2s
+                else:
+                    bvl = pa_bval
+                    gib = pa_gib
+                    raw = pa_raw
+                    p2s = pa_p2s
+                    sgib = s_pa_gib
+                    sraw = s_pa_raw
+                    sp2s = s_pa_p2s
 
+
+                for i, vs in enumerate(range(0, raw.shape[3])):
 
                     # computes the residuals
-                    rms_gibp2s = np.sqrt(abs((gib - p2s) ** 2))
-                    rms_rawp2s = np.sqrt(abs((raw - p2s) ** 2))
+                    rms_gibp2s = np.sqrt(abs((gib[:,:,s,vs] - p2s[:,:,s,vs]) ** 2))
+                    rms_rawp2s = np.sqrt(abs((raw[:,:,s,vs] - p2s[:,:,s,vs]) ** 2))
 
                     fig1, ax = plt.subplots(2, 3, figsize=(12, 12),subplot_kw={'xticks': [], 'yticks': []})
                 
@@ -1024,13 +1025,13 @@ class DwiPreprocessingClab():
                     fig1.suptitle(f'{sub} {d} vol={vs} bval={int(bvl[i])}', fontsize =20)
 
                     # Raw image
-                    ax.flat[0].imshow(raw.T, cmap=xcmp, interpolation='none',origin='lower')
+                    ax.flat[0].imshow(raw[:,:,s,vs].T, cmap=xcmp, interpolation='none',origin='lower')
                     ax.flat[0].set_title('Raw, ' + r'$\sigma_{noise}$' + f' = {round(sraw[i])}')
                     # Gibbs image
-                    ax.flat[1].imshow(gib.T, cmap=xcmp, interpolation='none',origin='lower')
+                    ax.flat[1].imshow(gib[:,:,s,vs].T, cmap=xcmp, interpolation='none',origin='lower')
                     ax.flat[1].set_title('Gibbs, ' + r'$\sigma_{noise}$' + f' = {round(sgib[i])}')
                     # p2s image
-                    ax.flat[2].imshow(p2s.T, cmap=xcmp, interpolation='none',origin='lower')
+                    ax.flat[2].imshow(p2s[:,:,s,vs].T, cmap=xcmp, interpolation='none',origin='lower')
                     ax.flat[2].set_title('P2S, ' + r'$\sigma_{noise}$' + f' = {round(sp2s[i])}')
                     # Raw - p2s
                     ax.flat[3].imshow(rms_rawp2s.T, cmap=xcmp, interpolation='none',origin='lower')
