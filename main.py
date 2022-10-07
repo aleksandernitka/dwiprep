@@ -128,7 +128,7 @@ class DwiPreprocessingClab():
         if self.log:
             # Logs errors or exceptions
             self.file = open(self.logfilename, 'a')
-            self.file.write(f'\n{self.dt.now()}\t{id}\tOK\t{message}')
+            self.file.write(f'\n{self.dt.now()}\t{id}\tERROR\t{message}')
             self.file.close()
 
     def log_warning(self, id, message):
@@ -1053,12 +1053,12 @@ class DwiPreprocessingClab():
                 try:
                     # yet again the shutil copy fails me, fallback to the cp method
                     for file in ['_AP_p2s.nii.gz', '_PA_p2s.nii.gz', '_AP_b0mask.npy']:
-                        sp.run(f'cp {self.join("tmp", sub, sub+file)} {self.join(self.dataout, sub, sub+file)}', shell=True)
-                        self.log_ok(f'sub', 'patch2self: copied {sub+file} to {self.dataout}')
+                        self.sp.run(f'cp {self.join("tmp", sub, sub+file)} {self.join(self.dataout, sub, sub+file)}', shell=True)
+                        self.log_ok(f'sub', f'patch2self: copied {sub+file} to {self.dataout}')
 
-                    sp.run(f'cp -r {self.join("tmp", sub, "imgs", "patch2self")} {self.join(self.dataout, sub, "imgs")}', shell=True)
-                    sp.run(f'cp -r {self.join("tmp", sub, "sigma_noise")} {self.join(self.dataout, sub)}', shell=True)
-                    self.log_ok(f'{sub}', f'patch2self: files copied to derivatives')
+                    self.sp.run(f'cp -r {self.join("tmp", sub, "imgs", "patch2self")} {self.join(self.dataout, sub, "imgs")}', shell=True)
+                    self.sp.run(f'cp -r {self.join("tmp", sub, "sigma_noise")} {self.join(self.dataout, sub)}', shell=True)
+                    self.log_ok(f'{sub}', f'patch2self: all files copied to derivatives')
                 except:
                     self.log_error(f'{sub}', f'patch2self: files not copied to derivatives')
                     print(f'{sub} files not copied to derivatives')
@@ -1068,7 +1068,8 @@ class DwiPreprocessingClab():
             if self.clean:
                 self.log_info(f'{sub}', f'patch2self: cleaning tmp folder')
                 try:
-                    self.rmtree(self.join('tmp', sub))
+                    #self.rmtree(self.join('tmp', sub))
+                    self.sp.run(f'rm -rf self.join("tmp", sub)', shell=True)
                     self.log_ok(f'{sub}', f'patch2self: tmp folder cleaned')
                 except:
                     self.log_error(f'{sub}', f'patch2self: tmp folder not cleaned')
