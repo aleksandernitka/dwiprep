@@ -864,7 +864,7 @@ class DwiPreprocessingClab():
             
             # Timer update, return ETA to log
             self.log_info(sub, eta_p2s.update())
-
+            """
             # make tmp dirs
             self.mkdir(self.join('tmp', sub))
             self.mkdir(self.join('tmp', sub, 'imgs'))
@@ -882,14 +882,14 @@ class DwiPreprocessingClab():
                     print(f'Could not copy file {f}')
                     self.log_subjectEnd(sub, 'dipyp2s')
                     continue
-            
+
             # Load gradient table
             try:
                 gtab = gradient_table(self.join('tmp', sub, sub + '_AP.bval'), self.join('tmp', sub, sub + '_AP.bvec'))
                 txt = f'bvals shape {gtab.bvals.shape}, min = {gtab.bvals.min()}, max = {gtab.bvals.max()} with {len(np.unique(gtab.bvals))} unique values: {np.unique(gtab.bvals)}bvecs shape {gtab.bvecs.shape}, min = {gtab.bvecs.min()}, max = {gtab.bvecs.max()}'
                 self.log_info(f'{sub}', f'patch2self: {txt}')
                 # save b0s mask as numpy array  - which volumes are b0 in AP (bool)
-                np.save(self.join('tmp', sub, f'{sub}_b0mask.npy'), gtab.b0s_mask)
+                np.save(self.join('tmp', sub, f'{sub}_AP_b0mask.npy'), gtab.b0s_mask)
             except:
                 self.log_error(f'{sub}', f'patch2self: Could not load gradient table')
                 print(f'{sub} Could not load gradient table')
@@ -1040,21 +1040,24 @@ class DwiPreprocessingClab():
                     ax.flat[4].imshow(rms_gibp2s.T, cmap=xcmp, interpolation='none',origin='lower')
                     ax.flat[4].set_title('Gibbs - P2S')
                     
-                    sfig = self.join('tmp', sub, 'imgs', 'patch2self', f'{sub}_{d}_v-{vs}.png')
+                    sfig = self.join('tmp', sub, 'imgs', 'patch2self', f'{sub}_{d}_v-{1000+int(vs)}.png')
                     fig1.savefig(sfig)
 
                     plt.close()
 
             self.log_ok(f'{sub}', f'patch2self: plotting all volumes completed successfully')
-
+            """
             # move all files to derivatives
             if self.copy:
                 self.log_info(f'{sub}', f'patch2self: copying files to derivatives')
                 try:
-                    self.copytree(self.join('tmp', sub, 'imgs', 'patch2self'), self.join(self.dataout, sub, 'imgs'))
-                    self.copytree(self.join('tmp', sub, 'sigma_noise'), self.join(self.dataout, sub, 'sigma_noise'))
-                    self.copyfile(self.join('tmp', sub, sub+'_AP_p2s.nii.gz'), self.join(self.dataout, sub, sub+'_AP_p2s.nii.gz'))
-                    self.copyfile(self.join('tmp', sub, sub+'_PA_p2s.nii.gz'), self.join(self.dataout, sub, sub+'_PA_p2s.nii.gz'))
+                    # yet again the shutil copy fails me, fallback to the cp method
+                    for file in ['_AP_p2s.nii.gz', '_PA_p2s.nii.gz', '_AP_b0mask.npy']:
+                        sp.run(f'cp {self.join("tmp", sub, sub+file)} {self.join(self.dataout, sub, sub+file)}', shell=True)
+                        self.log_ok(f'sub', 'patch2self: copied {sub+file} to {self.dataout}')
+
+                    sp.run(f'cp -r {self.join("tmp", sub, "imgs", "patch2self")} {self.join(self.dataout, sub, "imgs")}', shell=True)
+                    sp.run(f'cp -r {self.join("tmp", sub, "sigma_noise")} {self.join(self.dataout, sub)}', shell=True)
                     self.log_ok(f'{sub}', f'patch2self: files copied to derivatives')
                 except:
                     self.log_error(f'{sub}', f'patch2self: files not copied to derivatives')
