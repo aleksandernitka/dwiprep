@@ -1,4 +1,7 @@
 
+from sys import api_version
+
+
 class DwiPreprocessingClab():
 
     # Main analysis class for the MRI processing pipeline
@@ -821,7 +824,6 @@ class DwiPreprocessingClab():
             self.log_ok('ALL', f'Gibbs ringing correction completed successfully for {len(self.subs)} subjects')
             self.tg(f'Gibbs ringing correction completed for all {len(self.subs)} subjects')
 
-
     def patch2self(self):
         # Runs patch to self denoising on the data
 
@@ -1081,3 +1083,108 @@ class DwiPreprocessingClab():
             self.log_ok('ALL', f'Patch2Self completed successfully for {len(self.subs)} subjects')
             self.tg(f'Patch2Self completed for all {len(self.subs)} subjects')
 
+    def topup(self):
+
+        import json
+        import matplotlib.pyplot as plt
+
+        # Runs FSL topup via subprocess
+        # https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/topup
+
+        # Check if we have subjects to process
+        print(f'{len(self.subs)} subjects to process')
+        self.log_info('INIT', f'{len(self.subs)} subjects to process for topup estimation taks name: {self.task}')
+
+        # Loop over subjects
+        # dump the list of subjects to process to a file
+        self.log_subdump(self.subs)
+
+        # Timer and ETA
+        eta_p2s = Eta(mode='median', N = len(self.subs))
+        # TODO implement timer
+
+        # Loop over subjects
+        # FIXME list of subjects from csv or tsv to run instad of all files. 
+        for i, sub in enumerate(self.subs): 
+
+            # Run topup
+            # if dir exists in derivatives
+
+            # Log start
+            self.log_subjectStart(sub, 'topup')
+
+            if not self.exists(self.join(self.dataout, sub)):
+                self.log_warning(f'{sub}', f'topup: Output directory does not exist, skipping subject')
+                print(f'Output directory does not exist, skipping subject: {sub}')
+                self.log_subjectEnd(sub, 'topup')
+                continue
+            
+            # Timer update, return ETA to log
+            self.log_info(sub, eta_p2s.update())
+            # make tmp dirs
+            self.mkdir(self.join('tmp', sub))
+            self.mkdir(self.join('tmp', sub, 'imgs'))
+            self.mkdir(self.join('tmp', sub, 'imgs', 'topup'))
+
+            # copy required files
+            files = ['_AP_p2s.nii.gz', '_PA_p2s.nii.gz', '_AP.json', '_PA.json', '_AP.bval', '_AP.bvec']    
+            for f in files:
+                try:
+                    self.copyfile(self.join(self.dataout, sub, sub+f), self.join('tmp', sub, sub+f))
+                    self.log_ok(f'{sub}', f'topup: Copied {sub+f} to tmp folder')
+                except:
+                    self.log_error(f'{sub}', f'topup: Could not copy file {f}')
+                    print(f'Could not copy file {f}')
+                    self.log_subjectEnd(sub, 'topup')
+                    continue
+            
+            # create acqparams.txt for topup
+            # 0 1 0 TotalReadoutTime AP
+            # 0 -1 0 TotalReadoutTime PA
+
+            # Load sidecar jsons and read TRT
+            ds = ['AP', 'PA']
+            for d in ds:
+                with open(self.join('tmp', sub, sub+f'_{d}.json')) as f:
+                    data = json.load(f)
+                    ro = data['TotalReadoutTime']
+                    if d == 'AP':
+                        ap_ro = ro
+                        # TODO log
+                    else:
+                        pa_ro = ro
+                        # TODO log
+                    f.close()
+
+            with open(os.path.join("tmp", sub, f"sub-{sub}_acqparams.txt"), "w") as f:
+                f.write(f"0 1 0 {ap_ro}\n")
+                f.write(f"0 -1 0 {pa_ro}\n")
+                f.close()
+            
+            # Extract b0s
+            apim = self.join('tmp', sub, sub+'_AP_p2s.nii.gz')
+            paim = self.join('tmp', sub, sub+'_PA_p2s.nii.gz')
+            apb0 = self.join('tmp', sub, sub+'_AP_b0.nii.gz') # single b in AP direction
+            pab0 = self.join('tmp', sub, sub+'_PA_b0.nii.gz') # single b in PA direction
+            b0im = self.join('tmp', sub, sub+'_b0s.nii.gz') # merged b0s AP + PA
+
+            # Extract single b0 from AP and PA
+            self.sp.run(f'fslroi {apim} {apb0} 0 1', shell=True)
+            self.sp.run(f'fslroi {paim} {pab0} 0 1', shell=True)
+            # Merge into one AP-PA file
+            self.sp.run(f'fslmerge -t {b0im} {apb0} {pab0}', shell=True)
+
+            # Control figures for b0s
+            iap,__ = self.load_nifti(apb0)    
+            ipa,__ = self.load_nifti(pab0)
+            fig1, ax = plt.subplots(1, 2, figsize=(12, 6),subplot_kw={'xticks': [], 'yticks': []})
+            fig1.subplots_adjust(hspace=0.05, wspace=0.05)
+            fig1.suptitle(f'{sub}', fontsize = 20)
+            ax.flat[0].imshow(iap[:,:,42].T, cmap='gray', interpolation='none',origin='lower')
+            ax.flat[0].set_title('AP')
+            ax.flat[1].imshow(ipa[:,:,42].T, cmap='gray', interpolation='none',origin='lower')
+            ax.flat[1].set_title('PA')
+            fig1.savefig(self.join('tmp', sid, 'imgs', 'topup', f'{sub}_b0s_pretopup.png'))
+
+            # Run topup
+            self.sp.run(f'topup --imain={b0im} --datain={self.join("tmp", sub, f"sub-{sub}_acqparams.txt")} --config=b02b0.cnf --out={self.join("tmp", sub, "topup_results")} --iout={self.join("tmp", sub, "b0_corrected.nii.gz")}', shell=True)
