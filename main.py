@@ -1152,7 +1152,7 @@ class DwiPreprocessingClab():
                         # TODO log
                     f.close()
 
-            with open(self.join("tmp", sub, f"sub-{sub}_acqparams.txt"), "w") as f:
+            with open(self.join("tmp", sub, f"{sub}_acqparams.txt"), "w") as f:
                 f.write(f"0 1 0 {ap_ro}\n")
                 f.write(f"0 -1 0 {pa_ro}\n")
                 f.close()
@@ -1183,4 +1183,4 @@ class DwiPreprocessingClab():
             fig1.savefig(self.join('tmp', sub, 'imgs', 'topup', f'{sub}_b0s_pretopup.png'))
 
             # Run topup
-            self.sp.run(f'topup --imain={b0im} --datain={self.join("tmp", sub, f"sub-{sub}_acqparams.txt")} --config=b02b0.cnf --out={self.join("tmp", sub, "topup_results")} --iout={self.join("tmp", sub, "b0_corrected.nii.gz")}', shell=True)
+            self.sp.run(f'topup --imain={b0im} --datain={self.join("tmp", sub, "{sub}_acqparams.txt")} --config=b02b0.cnf --out={self.join("tmp", sub, "{sub}_topup_results")} --iout={self.join("tmp", sub, "{sub}_b0_corrected.nii.gz")}', shell=True)
