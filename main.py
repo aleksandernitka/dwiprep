@@ -1082,6 +1082,7 @@ class DwiPreprocessingClab():
 
         import json
         import matplotlib.pyplot as plt
+        from fun.eta import Eta
 
         # Runs FSL topup via subprocess
         # https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/topup
