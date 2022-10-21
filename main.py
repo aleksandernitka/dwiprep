@@ -1,7 +1,4 @@
 
-from sys import api_version
-
-
 class DwiPreprocessingClab():
 
     # Main analysis class for the MRI processing pipeline
@@ -254,6 +251,7 @@ class DwiPreprocessingClab():
                     try:
                         with open(self.input, 'r') as f:
                             self.subs = f.readlines()
+                            self.subs = [self.check_subid(x.strip()) for x in self.subs]
                         self.log_ok('INIT', 'Input recognise and read; list of subjects mode.')
                         return [True, 'Input recognised and loaded. List of subjects mode.']
                     except:
@@ -548,8 +546,6 @@ class DwiPreprocessingClab():
             self.log_ok('QA', 'QA directories found and created if needed, QA is enabled')
             return [True, 'QA directories found and created if needed']
 
-
-
     ########################################
     # Plotting methods #####################
     ########################################
@@ -703,7 +699,6 @@ class DwiPreprocessingClab():
 
         self.log_ok(f'{sub}', f'plt_compare_4d: Made plots for {file1} and {file2}')
         return [True, f'Comparison plots created for {sub}']
-        
 
     ########################################
     # DWI Preprocessing ####################
