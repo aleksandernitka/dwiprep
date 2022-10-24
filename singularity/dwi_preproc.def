@@ -43,6 +43,9 @@ apt-get install -y -q --no-install-recommends \
     libxt6 \
     nano \
     sudo \
+    libfftw3-dev \
+    libfftw3-doc \
+    tig \
     wget
 rm -rf /var/lib/apt/lists/*
 echo "Downloading FSL ..."
