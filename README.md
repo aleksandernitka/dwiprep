@@ -38,11 +38,11 @@ from dwiprep.main import DwiPreprocessingClab
 To initialise the preprocessing determine what kind of preprocessing you want to do. There are three key settings which one should supply; mode of work, input, and output dirs. 
 
 ```python
-my_preproc = DwiPreprocessingClab(task='my_preprocessing', mode='all', datain='mnt/krakow/raw', output_dir='mnt/krakow')
+my_preproc = DwiPreprocessingClab(task='my_preprocessing', mode='all', datain='mnt/krakow/raw', output_dir='mnt/krakow', gibbs_method='mrtrix3')
 ```
 alternatively, when wanting to only for a single subject:
 ```python
-my_preproc = DwiPreprocessingClab(task='my_single_subject_preprocessing', mode='sub', input='sub-00001', datain='mnt/krakow/raw', output_dir='mnt/krakow')
+my_preproc = DwiPreprocessingClab(task='my_single_subject_preprocessing', mode='sub', input='sub-00001', datain='mnt/krakow/raw', output_dir='mnt/krakow', gibbs_method='mrtrix3')
 ```
 
 In both cases this declaration will only store the choices, but will not run the process itself. The instatialisation can take more arguments:
@@ -51,6 +51,7 @@ In both cases this declaration will only store the choices, but will not run the
 * `mode` must be set as either `'all'` or `'a'`, `'list'` or `'l'`, or `'subject'` or `'s'`. This determines what data is going to be processed. `'all'` will process all subjects in the `datain` directory, `'list'` will process only subjects specified in the `input` argument, and `'subject'` will process only the subject specified in the `input` argument.
 * `input` what is going to be supplied here depends on the mode selected; fo `'all'` this can be skipped, for `'list'` a valid csv list of subject should be mapped and for `'sub'` one should specify the subject name as a string.
 * `datain` is the directory where the raw data is stored. The directory should contain the `sub-XXXXX` directories with the raw data (when running the first step of the pipeline) or derivatives (when running the second and later steps of the pipeline).
+* `gibbs_method` specifies which gibbs deringing method should be used. The options are `'mrtrix3'` and `'dipy'`. The default is `'mrtrix3'` as it caused less unintended artifacts.
 * `dataout` where the data should be moved to after the processing. The directory should contain the `sub-XXXXX` directories with the processed data.
 * `threads` specifies the number of threads to use for the processing. The default is all. Please note that this currently cannot be relied upon, for example the patch2self method will always use all threads available and at this point I do not know how to control this beast. 
 * `telegram` specifies whether to send the status of the processing to the telegram bot. The default is `True`, but requires setup of the telegram bot.
@@ -95,4 +96,4 @@ my_preproc.eddy()
 ```
 
 ## Quality Assurance and Control
-At each stage of the process control plots are created to make inspection of the data more convenient. The plots are saved in the `imgs` directory, in the subdirectory corresponding to the step of the processing. The plots are saved in the `png` format and can be viewed on any computer. However, the navigation between subjects and steps may cause trouble, therefore the final function can be used to create html reports with all the plots. 
+**NOT FULLY IMPLEMENTED YET** At each stage of the process control plots are created to make inspection of the data more convenient. The plots are saved in the `imgs` directory, in the subdirectory corresponding to the step of the processing. The plots are saved in the `png` format and can be viewed on any computer. However, the navigation between subjects and steps may cause trouble, therefore the final function can be used to create html reports with all the plots. 
