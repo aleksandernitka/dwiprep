@@ -14,9 +14,10 @@ class DwiPreprocessingClab():
     # - Scikit-Image 
     # - Nilearn 
 
-    def __init__(self, task, mode, input=None, datain=None, dataout=None, \
+    def __init__(self, task, mode, gibbs_method='mrtrix3', input=None, datain=None, dataout=None, \
         threads=-1, telegram=True, verbose=False, clean=True, \
-        copy=True, log=True, check_container=True, n_coils=32):
+        copy=True, log=True, check_container=True, n_coils=32, \
+        ):
         
         # Imports
         from os.path import join, exists, dirname, split, basename, isfile, isdir
@@ -40,6 +41,7 @@ class DwiPreprocessingClab():
         self.copy = copy # whether to copy the data from tmp to the dataout folder
         self.log = log # whether to log the processing
         self.n_coils = n_coils # number of coils used for the acquisition
+        self.gibbs_method = gibbs_method # method to be used for gibbs ringing correction, either mrtrix or dipy
 
         # Also mount some key dependencies for easy access
         self.ls = ls
@@ -678,7 +680,7 @@ class DwiPreprocessingClab():
             ax.flat[1].imshow(img2[:,:,slice[0],v].T, cmap=cmap, origin='lower')
             ax.flat[1].set_title(img2_name)
             ax.flat[4].imshow(img2[:,slice[1],:,v].T, cmap=cmap, origin='lower')
-            ax.flat[7].imshow(img1[slice[2],:,:,v].T, cmap=cmap, origin='lower')
+            ax.flat[7].imshow(img2[slice[2],:,:,v].T, cmap=cmap, origin='lower')
 
             if compare == 'res':
                 ax.flat[2].imshow(np.sqrt(img1[:,:,slice[0],v].T - img2[:,:,slice[0],v].T)**2, cmap=cmap, origin='lower')
@@ -713,6 +715,12 @@ class DwiPreprocessingClab():
         # also, did not want to spend too much time on it. 
         # plots are being created but not being moved the the QA dir, this can be done later.
         
+        # TODO move to init
+        if self.gibbs_method not in ['dipy', 'mrtrix3']:
+            print('Invalid method, allowed methods are dipy and mrtrix3')
+            self.log_error(f'{sub}', f'gibbs: Invalid method: {self.gibbs_method}')
+            return [False, 'Invalid method']
+
         # Check if we have subjects to process
         print(f'{len(self.subs)} subjects to process')
         self.log_info('INIT', f'{len(self.subs)} subjects to process for gibbs ringing correction, taks name: {self.task}')
@@ -728,10 +736,10 @@ class DwiPreprocessingClab():
                 print(f'Output directory already exists, skipping subject: {sub}')
                 continue
 
-            print(f'Processing subject {sub} ({i+1}/{len(self.subs)} for gibbs ringing correction)')
+            print(f'Processing subject {sub} ({i+1}/{len(self.subs)} for {method} gibbs ringing correction)')
             
             # Log start
-            self.log_subjectStart(sub, 'dipygibbs')
+            self.log_subjectStart(sub, f'{self.gibbs_method}gibbs')
 
             # Perform subject checks
             # Check indir
@@ -739,7 +747,7 @@ class DwiPreprocessingClab():
             if not s:
                 self.log_error(sub, m)
                 print(m)
-                self.log_subjectEnd(sub, 'dipygibbs')
+                self.log_subjectEnd(sub, f'{self.gibbs_method}gibbs')
                 continue
             else:
                 self.log_ok(sub, m)
@@ -750,7 +758,7 @@ class DwiPreprocessingClab():
             if not s:
                 self.log_error(sub, m)
                 print(m)
-                self.log_subjectEnd(sub, 'dipygibbs')
+                self.log_subjectEnd(sub, f'{self.gibbs_method}gibbs')
                 continue
             else:
                 self.log_ok(sub, m)
@@ -761,16 +769,30 @@ class DwiPreprocessingClab():
             if not s:
                 self.log_error(sub, m)
                 print(m)
-                self.log_subjectEnd(sub, 'dipygibbs')
+                self.log_subjectEnd(sub, f'{self.gibbs_method}gibbs')
                 continue
             else:
                 self.log_ok(sub, m)
                 pass
 
-            self.log_info(f'{sub}', f'Running gibbs ringing correction for AP {sub}')
-            self.sp.run(f'dipy_gibbs_ringing {self.join("tmp", sub, sub + "_AP.nii")} --out_unring {self.join("tmp", sub, sub + "_AP_gib.nii.gz")} --num_processes={self.threads}', shell=True)
-            self.log_info(f'{sub}', f'Running gibbs ringing correction for PA {sub}')
-            self.sp.run(f'dipy_gibbs_ringing {self.join("tmp", sub, sub + "_PA.nii")} --out_unring {self.join("tmp", sub, sub + "_PA_gib.nii.gz")} --num_processes={self.threads}', shell=True)
+
+            # run depending on method selected
+            ap_in = self.join("tmp", sub, sub + "_AP.nii")
+            ap_out= self.join("tmp", sub, sub + "_AP_gibbs.nii")
+            pa_in = self.join("tmp", sub, sub + "_PA.nii")
+            pa_out= self.join("tmp", sub, sub + "_PA_gibbs.nii")
+
+            if self.gibbs_method == 'dipy':
+                self.log_info(f'{sub}', f'Running {self.gibbs_method}gibbs ringing correction for AP {sub}')
+                self.sp.run(f'dipy_gibbs_ringing {ap_in} --out_unring {ap_out} --num_processes={self.threads}', shell=True)
+                self.log_info(f'{sub}', f'Running {self.gibbs_method}gibbs ringing correction for PA {sub}')
+                self.sp.run(f'dipy_gibbs_ringing {pa_in} --out_unring {pa_out} --num_processes={self.threads}', shell=True)
+
+            elif self.gibbs_method == 'mrtrix':
+                self.log_info(f'{sub}', f'Running {self.gibbs_method}gibbs ringing correction for AP {sub}')
+                self.sp.run(f'mrdegibbs {ap_in} {ap_out} -nthreads {self.threads}', shell=True)
+                self.log_info(f'{sub}', f'Running {self.gibbs_method}gibbs ringing correction for PA {sub}')
+                self.sp.run(f'mrdegibbs {pa_in} {pa_out} -nthreads {self.threads}', shell=True)
 
             # QA
             # create a directory for the QA plots
@@ -800,7 +822,7 @@ class DwiPreprocessingClab():
                 except:
                     self.log_error(f'{sub}', f'Could not copy data to dataout folder: {self.dataout}')
                     print(f'Could not copy data to dataout folder')
-                    self.log_subjectEnd(sub, 'dipygibbs')
+                    self.log_subjectEnd(sub, f'{self.gibbs_method}gibbs')
                     continue
             
             if self.clean:
@@ -810,11 +832,11 @@ class DwiPreprocessingClab():
                 except:
                     self.log_error(f'{sub}', f'Could not remove tmp folder for {sub}')
                     print(f'Could not remove tmp folder for {sub}')
-                    self.log_subjectEnd(sub, 'dipygibbs')
+                    self.log_subjectEnd(sub, f'{self.gibbs_method}gibbs')
                     continue
 
-            self.log_ok(f'{sub}', f'Gibbs ringing correction for {sub} completed successfully')
-            self.log_subjectEnd(sub, 'dipygibbs')
+            self.log_ok(f'{sub}', f'Gibbs ringing correction {self.gibbs_method} for {sub} completed successfully')
+            self.log_subjectEnd(sub, f'{self.gibbs_method}gibbs')
 
         # Loop end
         if self.telegram:
