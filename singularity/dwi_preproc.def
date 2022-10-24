@@ -14,6 +14,8 @@ export FSLLOCKDIR=""
 export FSLMACHINELIST=""
 export FSLREMOTECALL=""
 export FSLGECUDAQ="cuda.q"
+export PATH="/opt/mrtrix3-3.0.2/bin:$PATH"
+export LD_LIBRARY_PATH="/opt/mrtrix3-3.0.2/lib:$PATH"
 export CONDA_DIR="/opt/miniconda-py39_4.12.0"
 export PATH="/opt/miniconda-py39_4.12.0/bin:$PATH"
 
@@ -49,6 +51,19 @@ curl -fL https://fsl.fmrib.ox.ac.uk/fsldownloads/fsl-6.0.5-centos7_64.tar.gz \
 | tar -xz -C /opt/fsl-6.0.5 --strip-components 1 
 echo "Installing FSL conda environment ..."
 bash /opt/fsl-6.0.5/etc/fslconf/fslpython_install.sh -f /opt/fsl-6.0.5
+
+apt-get update -qq
+apt-get install -y -q --no-install-recommends \
+    bzip2 \
+    ca-certificates \
+    curl \
+    libpng16-16 \
+    libtiff5
+rm -rf /var/lib/apt/lists/*
+echo "Downloading MRtrix3 ..."
+mkdir -p /opt/mrtrix3-3.0.2
+curl -fsSL https://github.com/MRtrix3/mrtrix3/releases/download/3.0.2/conda-linux-mrtrix3-3.0.2-h6bb024c_0.tar.bz2 \
+| tar -xj -C /opt/mrtrix3-3.0.2
 
 apt-get update -qq
 apt-get install -y -q --no-install-recommends \
@@ -94,6 +109,7 @@ apt-get install -y -q --no-install-recommends \
     git \
     htop \
     nano \
+    tig \
     tree \
     vim \
     wget
@@ -136,6 +152,19 @@ printf '{ \
     { \
       "name": "env", \
       "kwds": { \
+        "PATH": "/opt/mrtrix3-3.0.2/bin:$PATH", \
+        "LD_LIBRARY_PATH": "/opt/mrtrix3-3.0.2/lib:$PATH" \
+      } \
+    }, \
+    { \
+      "name": "run", \
+      "kwds": { \
+        "command": "apt-get update -qq\\napt-get install -y -q --no-install-recommends \\\\\\n    bzip2 \\\\\\n    ca-certificates \\\\\\n    curl \\\\\\n    libpng16-16 \\\\\\n    libtiff5\\nrm -rf /var/lib/apt/lists/*\\necho \\"Downloading MRtrix3 ...\\"\\nmkdir -p /opt/mrtrix3-3.0.2\\ncurl -fsSL https://github.com/MRtrix3/mrtrix3/releases/download/3.0.2/conda-linux-mrtrix3-3.0.2-h6bb024c_0.tar.bz2 \\\\\\n| tar -xj -C /opt/mrtrix3-3.0.2" \
+      } \
+    }, \
+    { \
+      "name": "env", \
+      "kwds": { \
         "CONDA_DIR": "/opt/miniconda-py39_4.12.0", \
         "PATH": "/opt/miniconda-py39_4.12.0/bin:$PATH" \
       } \
@@ -161,7 +190,8 @@ printf '{ \
           "nano", \
           "htop", \
           "tree", \
-          "wget" \
+          "wget", \
+          "tig" \
         ], \
         "opts": null \
       } \
@@ -169,7 +199,7 @@ printf '{ \
     { \
       "name": "run", \
       "kwds": { \
-        "command": "apt-get update -qq\\napt-get install -y -q --no-install-recommends \\\\\\n    git \\\\\\n    htop \\\\\\n    nano \\\\\\n    tree \\\\\\n    vim \\\\\\n    wget\\nrm -rf /var/lib/apt/lists/*" \
+        "command": "apt-get update -qq\\napt-get install -y -q --no-install-recommends \\\\\\n    git \\\\\\n    htop \\\\\\n    nano \\\\\\n    tig \\\\\\n    tree \\\\\\n    vim \\\\\\n    wget\\nrm -rf /var/lib/apt/lists/*" \
       } \
     } \
   ] \

@@ -1,6 +1,8 @@
 
 class DwiPreprocessingClab():
 
+    # TODO - at each step of the pipeline drop a file with some details, time and date as infor for qa.
+
     # Main analysis class for the MRI processing pipeline
     # Standarises some of the processing steps
     # Developed by Aleksander W. Nitka
