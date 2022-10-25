@@ -16,8 +16,7 @@ class DwiPreprocessingClab():
 
     def __init__(self, task, mode, gibbs_method='mrtrix3', input=None, datain=None, dataout=None, \
         threads=-1, telegram=True, verbose=False, clean=True, \
-        copy=True, log=True, check_container=True, n_coils=32, \
-        ):
+        copy=True, log=True, check_container=True, n_coils=32):
         
         # Imports
         from os.path import join, exists, dirname, split, basename, isfile, isdir
@@ -99,6 +98,12 @@ class DwiPreprocessingClab():
 
         # Check telegram - no return value
         self.check_telegram()
+
+        # Check if gibbs method is good.
+        if self.gibbs_method not in ['dipy', 'mrtrix3']:
+            print('Invalid method, allowed methods are dipy and mrtrix3')
+            self.log_error(f'{sub}', f'gibbs: Invalid method: {self.gibbs_method}')
+            return [False, 'Invalid method']
         
         self.log_ok('INIT', 'All checks passed')
         print('All initial checks passed. Starting processing')
@@ -715,12 +720,6 @@ class DwiPreprocessingClab():
         # also, did not want to spend too much time on it. 
         # plots are being created but not being moved the the QA dir, this can be done later.
         
-        # TODO move to init
-        if self.gibbs_method not in ['dipy', 'mrtrix3']:
-            print('Invalid method, allowed methods are dipy and mrtrix3')
-            self.log_error(f'{sub}', f'gibbs: Invalid method: {self.gibbs_method}')
-            return [False, 'Invalid method']
-
         # Check if we have subjects to process
         print(f'{len(self.subs)} subjects to process')
         self.log_info('INIT', f'{len(self.subs)} subjects to process for gibbs ringing correction, taks name: {self.task}')
