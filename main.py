@@ -735,7 +735,7 @@ class DwiPreprocessingClab():
                 print(f'Output directory already exists, skipping subject: {sub}')
                 continue
 
-            print(f'Processing subject {sub} ({i+1}/{len(self.subs)} for {method} gibbs ringing correction)')
+            print(f'Processing subject {sub} ({i+1}/{len(self.subs)} for {self.gibbs_method} gibbs ringing correction)')
             
             # Log start
             self.log_subjectStart(sub, f'{self.gibbs_method}gibbs')
