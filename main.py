@@ -777,9 +777,9 @@ class DwiPreprocessingClab():
 
             # run depending on method selected
             ap_in = self.join("tmp", sub, sub + "_AP.nii")
-            ap_out= self.join("tmp", sub, sub + "_AP_gib.nii")
+            ap_out= self.join("tmp", sub, sub + "_AP_gib.nii.gz")
             pa_in = self.join("tmp", sub, sub + "_PA.nii")
-            pa_out= self.join("tmp", sub, sub + "_PA_gib.nii")
+            pa_out= self.join("tmp", sub, sub + "_PA_gib.nii.gz")
 
             if self.gibbs_method == 'dipy':
                 self.log_info(f'{sub}', f'Running {self.gibbs_method}gibbs ringing correction for AP {sub}')
