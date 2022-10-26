@@ -787,7 +787,7 @@ class DwiPreprocessingClab():
                 self.log_info(f'{sub}', f'Running {self.gibbs_method}gibbs ringing correction for PA {sub}')
                 self.sp.run(f'dipy_gibbs_ringing {pa_in} --out_unring {pa_out} --num_processes={self.threads}', shell=True)
 
-            elif self.gibbs_method == 'mrtrix':
+            elif self.gibbs_method == 'mrtrix3':
                 self.log_info(f'{sub}', f'Running {self.gibbs_method}gibbs ringing correction for AP {sub}')
                 self.sp.run(f'mrdegibbs {ap_in} {ap_out} -nthreads {self.threads}', shell=True)
                 self.log_info(f'{sub}', f'Running {self.gibbs_method}gibbs ringing correction for PA {sub}')
