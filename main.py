@@ -13,6 +13,7 @@ class DwiPreprocessingClab():
     # - FSL 6.0.5
     # - DIPY 1.5.0
     # - Fury 0.9.0
+    # - MRtrix3 3.0.2
     # - Scikit-Learn 
     # - Scikit-Image 
     # - Nilearn 
@@ -844,9 +845,14 @@ class DwiPreprocessingClab():
         if self.telegram:
             self.log_ok('ALL', f'Gibbs ringing correction completed successfully for {len(self.subs)} subjects')
             self.tg(f'Gibbs ringing correction completed for all {len(self.subs)} subjects')
+         
     def mppca(self):
         # Quicker and less aggressive denoising method implemented in mrtrix3
         # https://mrtrix.readthedocs.io/en/latest/reference/commands/mppca.html
+
+        from dipy.denoise.noise_estimate import estimate_sigma
+        import matplotlib.pyplot as plt
+        import numpy as np
 
         print(f'{len(self.subs)} subjects to process')
         self.log_info('ALL', f'Running mrtrix3_mppca denoising for {len(self.subs)} subjects')
@@ -885,16 +891,15 @@ class DwiPreprocessingClab():
                     self.log_subjectEnd(sub, 'mrtrix3_mppca')
                     continue
 
-            
             # Load data, raw and gibbs
             # Load raw for sigma estimation
             try:
                 ap_raw, __ = self.load_nifti(self.join('tmp', sub, sub + '_AP.nii'))
                 pa_raw, __ = self.load_nifti(self.join('tmp', sub, sub + '_PA.nii'))
-                # Load gibbs, for sigma and patch2self
-                ap_gib, ap_gib_aff = self.load_nifti(self.join('tmp', sub, sub + '_AP_gib.nii.gz'))
-                pa_gib, pa_gib_aff = self.load_nifti(self.join('tmp', sub, sub + '_PA_gib.nii.gz'))
-                ap_bval = np.loadtxt(self.join('tmp', sub, f'{sub}_AP.bval'))
+                # Load gibbs, for sigma and mppca
+                ap_gib, __ = self.load_nifti(self.join('tmp', sub, sub + '_AP_gib.nii.gz'))
+                pa_gib, __ = self.load_nifti(self.join('tmp', sub, sub + '_PA_gib.nii.gz'))
+                ap_bval = np.loadtxt(self.join('tmp', sub, sub + '_AP.bval'))
                 pa_bval = np.array([5.,5.,5.,5.,5.])
             except:
                 self.log_error(f'{sub}', f'mrtrix3_mppca: Could not load data')
@@ -1080,7 +1085,6 @@ class DwiPreprocessingClab():
         if self.telegram:
             self.log_ok('ALL', f'mrtrix3_mppca completed successfully for {len(self.subs)} subjects')
             self.tg(f'mrtrix3_mppca completed for all {len(self.subs)} subjects')
-
 
     def patch2self(self):
         # Runs patch to self denoising on the data
