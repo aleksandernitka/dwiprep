@@ -1,4 +1,7 @@
 
+from curses import pair_number
+
+
 class DwiPreprocessingClab():
 
     # TODO - at each step of the pipeline drop a file with some details, time and date as infor for qa.
@@ -923,28 +926,22 @@ class DwiPreprocessingClab():
                 self.log_subjectEnd(sub, 'mrtrix3_mppca')
                 continue
             
-            # run mrtrix3_mppca on AP
-            try:
-                # run mrtrix3_mppca
-                self.sp.run(f'dwidenoise -ntreads {self.threads} {self.join("tmp", sub, sub+"_AP_gib.nii.gz")} {self.join("tmp", sub, sub+"_AP_gib_mppca.nii.gz")} \
-                    -noise {self.join("tmp", sub, "imgs", "mrtrix3_mppca", sub+"_AP_mppca_noise.nii.gz")}', shell=True)
-                self.log_ok(f'{sub}', f'mrtrix3_mppca: AP completed successfully')
-            except:
-                self.log_error(f'{sub}', f'mrtrix3_mppca: AP failed')
-                print(f'{sub} AP mrtrix3_mppca failed')
-                self.log_subjectEnd(sub, 'mrtrix3_mppca')
-                continue
-            
-            # run mrtrix3_mppca on PA
-            try:
-                # run mrtrix3_mppca
-                self.sp.run(f'dwidenoise -ntreads {self.threads} {self.join("tmp", sub, sub+"_PA_gib.nii.gz")} {self.join("tmp", sub, sub+"_PA_gib_mppca.nii.gz")} \
-                    -noise {self.join("tmp", sub, "imgs", "mrtrix3_mppca", sub+"_PA_mppca_noise.nii.gz")}', shell=True)
-                self.log_ok(f'{sub}', f'mrtrix3_mppca: PA completed successfully')
-            except:
-                self.log_error(f'{sub}', f'mrtrix3_mppca: PA failed')
-                print(f'{sub} PA mrtrix3_mppca failed')
-                continue
+            # run mrtrix3_mppca
+            for d in ['AP', 'PA']:
+                try:
+                    # run mrtrix3_mppca
+                    iin = self.join("tmp", sub, sub+f"_{d}_gib.nii.gz")
+                    out = self.join("tmp", sub, sub+f"_{d}_gib_mppca.nii.gz")
+                    noise = self.join("tmp", sub, "imgs", "mrtrix3_mppca", sub+f"_{d}_mppca_noise.nii.gz")
+                    resid = self.join("tmp", sub, "imgs", "mrtrix3_mppca", sub+f"_{d}_mppca_resid.nii.gz")
+                    
+                    self.sp.run(f'dwidenoise -ntreads {self.threads} {iin} {out} -noise {noise}', shell=True)
+                    self.sp.run(f'mrcalc {iin} {out} -subtract {resid}', shell=True)
+                    self.log_ok(f'{sub}', f'mrtrix3_mppca: {d} completed successfully')
+                except:
+                    self.log_error(f'{sub}', f'mrtrix3_mppca: {d} failed')
+                    print(f'{sub} {d} mrtrix3_mppca failed')
+                    continue
             
             # estimate sigma for AP and PA
             try:
@@ -975,6 +972,7 @@ class DwiPreprocessingClab():
                     sgib = s_ap_gib
                     sraw = s_ap_raw
                     smpp = s_ap_mppca
+                    resi = self.join("tmp", sub, "imgs", "mrtrix3_mppca", sub+"_AP_mppca_resid.nii.gz")
                 else:
                     bvl = pa_bval
                     gib = pa_gib
@@ -983,34 +981,43 @@ class DwiPreprocessingClab():
                     sgib = s_pa_gib
                     sraw = s_pa_raw
                     smpp = s_pa_mppca
+                    resi = self.join("tmp", sub, "imgs", "mrtrix3_mppca", sub+"_PA_mppca_resid.nii.gz")
 
 
                 for i, vs in enumerate(range(0, raw.shape[3])):
 
                     # computes the residuals
-                    rms_gibmppca = np.sqrt(abs((gib[:,:,s,vs] - mpp[:,:,s,vs]) ** 2))
-                    rms_rawmppca = np.sqrt(abs((raw[:,:,s,vs] - mpp[:,:,s,vs]) ** 2))
+                    #rms_gibmppca = np.sqrt(abs((gib[:,:,s,vs] - mpp[:,:,s,vs]) ** 2))
+                    #rms_rawmppca = np.sqrt(abs((raw[:,:,s,vs] - mpp[:,:,s,vs]) ** 2))
 
-                    fig1, ax = plt.subplots(2, 3, figsize=(12, 12),subplot_kw={'xticks': [], 'yticks': []})
+                    fig1, ax = plt.subplots(4, 3, figsize=(16, 12),subplot_kw={'xticks': [], 'yticks': []})
                 
                     fig1.subplots_adjust(hspace=0.05, wspace=0.05)
                     fig1.suptitle(f'{sub} {d} vol={vs} bval={int(bvl[i])}', fontsize =20)
 
                     # Raw image
                     ax.flat[0].imshow(raw[:,:,s,vs].T, cmap=xcmp, interpolation='none',origin='lower')
-                    ax.flat[0].set_title('Raw, ' + r'$\sigma_{noise}$' + f' = {round(sraw[i])}')
+                    ax.flat[1].imshow(raw[:,s,:,vs].T, cmap=xcmp, interpolation='none',origin='lower')
+                    ax.flat[1].set_title('Raw, ' + r'$\sigma_{noise}$' + f' = {round(sraw[i])}')
+                    ax.flat[2].imshow(raw[s,:,:,vs].T, cmap=xcmp, interpolation='none',origin='lower')
+
                     # Gibbs image
-                    ax.flat[1].imshow(gib[:,:,s,vs].T, cmap=xcmp, interpolation='none',origin='lower')
-                    ax.flat[1].set_title('Gibbs, ' + r'$\sigma_{noise}$' + f' = {round(sgib[i])}')
+                    ax.flat[3].imshow(gib[:,:,s,vs].T, cmap=xcmp, interpolation='none',origin='lower')
+                    ax.flat[4].imshow(gib[:,:,s,vs].T, cmap=xcmp, interpolation='none',origin='lower')
+                    ax.flat[4].set_title('Gibbs, ' + r'$\sigma_{noise}$' + f' = {round(sgib[i])}')
+                    ax.flat[5].imshow(gib[:,:,s,vs].T, cmap=xcmp, interpolation='none',origin='lower')
+                    
                     # mppca image
-                    ax.flat[2].imshow(mpp[:,:,s,vs].T, cmap=xcmp, interpolation='none',origin='lower')
-                    ax.flat[2].set_title('MPPCA, ' + r'$\sigma_{noise}$' + f' = {round(smpp[i])}')
-                    # Raw - p2s
-                    ax.flat[3].imshow(rms_rawmppca.T, cmap=xcmp, interpolation='none',origin='lower')
-                    ax.flat[3].set_title('Raw - MPPCA')
-                    # Gibbs - p2s
-                    ax.flat[4].imshow(rms_gibmppca.T, cmap=xcmp, interpolation='none',origin='lower')
-                    ax.flat[4].set_title('Gibbs - MPPCA')
+                    ax.flat[6].imshow(mpp[:,:,s,vs].T, cmap=xcmp, interpolation='none',origin='lower')
+                    ax.flat[7].imshow(mpp[:,:,s,vs].T, cmap=xcmp, interpolation='none',origin='lower')
+                    ax.flat[7].set_title('MPPCA, ' + r'$\sigma_{noise}$' + f' = {round(smpp[i])}')
+                    ax.flat[8].imshow(mpp[:,:,s,vs].T, cmap=xcmp, interpolation='none',origin='lower')
+                    
+                    # Residuals GIBBS - MPPCA
+                    ax.flat[9].imshow(resi[:,:,s,vs].T, cmap=xcmp, interpolation='none',origin='lower')
+                    ax.flat[10].imshow(resi[:,:,s,vs].T, cmap=xcmp, interpolation='none',origin='lower')
+                    ax.flat[10].set_title('Residuals Gibbs - MPPCA')
+                    ax.flat[11].imshow(resi[:,:,s,vs].T, cmap=xcmp, interpolation='none',origin='lower')
                     
                     sfig = self.join('tmp', sub, 'imgs', 'mrtrix3_mppca', f'{sub}_{d}_v-{1000+int(vs)}.png')
                     fig1.savefig(sfig)
@@ -1018,7 +1025,7 @@ class DwiPreprocessingClab():
                     plt.close()
 
             # Plot the noise residuals
-            self.log_info(f'{sub}', f'mrtrix3_mppca: plotting noise residuals')
+            self.log_info(f'{sub}', f'mrtrix3_mppca: plotting noise')
             for d in ['AP', 'PA']:
                 fig0, ax = plt.subplots(1, 3, figsize=(6, 12),subplot_kw={'xticks': [], 'yticks': []})
                 fig0.subplots_adjust(hspace=0.05, wspace=0.05)
@@ -1032,11 +1039,12 @@ class DwiPreprocessingClab():
                 ax.flat[1].imshow(mppca[:,s,:].T, cmap=xcmp, interpolation='none',origin='lower')
                 ax.flat[2].imshow(mppca[s,:,:].T, cmap=xcmp, interpolation='none',origin='lower')
 
-                sfig0 = self.join('tmp', sub, 'imgs', 'mrtrix3_mppca', f'{sub}_{d}_noise_residuals.png')
+                sfig0 = self.join('tmp', sub, 'imgs', 'mrtrix3_mppca', f'{sub}_{d}_noise.png')
                 fig0.savefig(sfig0)
                 plt.close()
 
-            self.log_ok(f'{sub}', f'mrtrix3_mppca: plotting all volumes completed successfully')
+            self.log_ok(f'{sub}', f'mrtrix3_mppca: plotting completed successfully')
+            
             # move all files to derivatives
             if self.copy:
                 self.log_info(f'{sub}', f'mrtrix3_mppca: copying files to derivatives')
