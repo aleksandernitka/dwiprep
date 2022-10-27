@@ -999,7 +999,7 @@ class DwiPreprocessingClab():
                         #rms_gibmppca = np.sqrt(abs((gib[:,:,s,vs] - mpp[:,:,s,vs]) ** 2))
                         #rms_rawmppca = np.sqrt(abs((raw[:,:,s,vs] - mpp[:,:,s,vs]) ** 2))
 
-                        fig1, ax = plt.subplots(4, 3, figsize=(8, 6),subplot_kw={'xticks': [], 'yticks': []})
+                        fig1, ax = plt.subplots(4, 3, subplot_kw={'xticks': [], 'yticks': []})
                     
                         fig1.subplots_adjust(hspace=0.15, wspace=0.05)
                         fig1.suptitle(f'{sub} {d} vol={vs} bval={int(bvl[i])}', fontsize=15)
@@ -1041,7 +1041,7 @@ class DwiPreprocessingClab():
             self.log_info(f'{sub}', f'mrtrix3_mppca: plotting noise')
             try:
                 for d in ['AP', 'PA']:
-                    fig0, ax = plt.subplots(1, 3, figsize=(6, 12),subplot_kw={'xticks': [], 'yticks': []})
+                    fig0, ax = plt.subplots(1, 3 ,subplot_kw={'xticks': [], 'yticks': []})
                     fig0.subplots_adjust(hspace=0.05, wspace=0.05)
                     fig0.suptitle(f'{sub} {d} MPPCA noise', fontsize=15)
 
