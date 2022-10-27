@@ -940,7 +940,7 @@ class DwiPreprocessingClab():
                     noise = self.join("tmp", sub, "imgs", "mrtrix3_mppca", sub+f"_{d}_mppca_noise.nii.gz")
                     resid = self.join("tmp", sub, "imgs", "mrtrix3_mppca", sub+f"_{d}_mppca_resid.nii.gz")
                     
-                    self.sp.run(f'dwidenoise -ntreads {self.threads} {iin} {out} -noise {noise}', shell=True)
+                    self.sp.run(f'dwidenoise -nthreads {self.threads} {iin} {out} -noise {noise}', shell=True)
                     self.sp.run(f'mrcalc {iin} {out} -subtract {resid}', shell=True)
                     self.log_ok(f'{sub}', f'mrtrix3_mppca: {d} completed successfully')
                 except:
