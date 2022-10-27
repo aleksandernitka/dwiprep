@@ -847,6 +847,10 @@ class DwiPreprocessingClab():
         # Quicker and less aggressive denoising method implemented in mrtrix3
         # https://mrtrix.readthedocs.io/en/latest/reference/commands/mppca.html
 
+        from dipy.denoise.noise_estimate import estimate_sigma
+        import matplotlib.pyplot as plt
+        import numpy as np
+
         print(f'{len(self.subs)} subjects to process')
         self.log_info('ALL', f'Running mrtrix3_mppca denoising for {len(self.subs)} subjects')
         self.log_subdump(self.subs)
