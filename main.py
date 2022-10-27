@@ -1041,7 +1041,7 @@ class DwiPreprocessingClab():
             self.log_info(f'{sub}', f'mrtrix3_mppca: plotting noise')
             try:
                 for d in ['AP', 'PA']:
-                    fig0, ax = plt.subplots(1, 3 ,figsize = (600*px, 200*px), subplot_kw={'xticks': [], 'yticks': []})
+                    fig0, ax = plt.subplots(1, 3 , figsize = (6,2), subplot_kw={'xticks': [], 'yticks': []})
                     fig0.subplots_adjust(hspace=0.05, wspace=0.05)
                     fig0.suptitle(f'{sub} {d} MPPCA noise', fontsize=15)
 
