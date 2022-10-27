@@ -977,7 +977,7 @@ class DwiPreprocessingClab():
                     sgib = s_ap_gib
                     sraw = s_ap_raw
                     smpp = s_ap_mppca
-                    resi = self.join("tmp", sub, "imgs", "mrtrix3_mppca", sub+"_AP_mppca_resid.nii.gz")
+                    resi, __ = self.load_nifti(self.join("tmp", sub, "imgs", "mrtrix3_mppca", sub+"_AP_mppca_resid.nii.gz"))
                 else:
                     bvl = pa_bval
                     gib = pa_gib
@@ -986,7 +986,7 @@ class DwiPreprocessingClab():
                     sgib = s_pa_gib
                     sraw = s_pa_raw
                     smpp = s_pa_mppca
-                    resi = self.join("tmp", sub, "imgs", "mrtrix3_mppca", sub+"_PA_mppca_resid.nii.gz")
+                    resi, __ = self.load_nifti(self.join("tmp", sub, "imgs", "mrtrix3_mppca", sub+"_PA_mppca_resid.nii.gz"))
 
 
                 for i, vs in enumerate(range(0, raw.shape[3])):
