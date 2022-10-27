@@ -1025,7 +1025,7 @@ class DwiPreprocessingClab():
                         # Residuals GIBBS - MPPCA
                         ax.flat[9].imshow(resi[d0,:,:,vs].T, cmap=xcmp, interpolation='none',origin='lower')
                         ax.flat[10].imshow(resi[:,d1,:,vs].T, cmap=xcmp, interpolation='none',origin='lower')
-                        ax.flat[10].set_title('Residuals Gibbs - MPPCA')
+                        ax.flat[10].set_title('Resid Gibbs - MPPCA')
                         ax.flat[11].imshow(resi[:,:,d2,vs].T, cmap=xcmp, interpolation='none',origin='lower')
                         
                         sfig = self.join('tmp', sub, 'imgs', 'mrtrix3_mppca', f'{sub}_{d}_v-{1000+int(vs)}.png')
