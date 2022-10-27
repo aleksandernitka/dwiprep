@@ -999,9 +999,9 @@ class DwiPreprocessingClab():
                         #rms_gibmppca = np.sqrt(abs((gib[:,:,s,vs] - mpp[:,:,s,vs]) ** 2))
                         #rms_rawmppca = np.sqrt(abs((raw[:,:,s,vs] - mpp[:,:,s,vs]) ** 2))
 
-                        fig1, ax = plt.subplots(4, 3, figsize=(12, 8),subplot_kw={'xticks': [], 'yticks': []})
+                        fig1, ax = plt.subplots(4, 3, figsize=(8, 8),subplot_kw={'xticks': [], 'yticks': []})
                     
-                        #fig1.subplots_adjust(hspace=0.05, wspace=0.05)
+                        fig1.subplots_adjust(hspace=0.05, wspace=0.15)
                         fig1.suptitle(f'{sub} {d} vol={vs} bval={int(bvl[i])}', fontsize=15)
 
                         # Raw image
@@ -1043,15 +1043,15 @@ class DwiPreprocessingClab():
                 for d in ['AP', 'PA']:
                     fig0, ax = plt.subplots(1, 3, figsize=(6, 12),subplot_kw={'xticks': [], 'yticks': []})
                     fig0.subplots_adjust(hspace=0.05, wspace=0.05)
-                    fig0.suptitle(f'{sub} {d} MPPCA noise residuals', fontsize =20)
+                    fig0.suptitle(f'{sub} {d} MPPCA noise residuals', fontsize=20)
                     if d == 'AP':
                         mppca = ap_mppca
                     else:
                         mppca = pa_mppca
                     # Plot the noise residuals
-                    ax.flat[0].imshow(mppca[d1,:,:].T, cmap=xcmp, interpolation='none',origin='lower')
-                    ax.flat[1].imshow(mppca[:,d2,:].T, cmap=xcmp, interpolation='none',origin='lower')
-                    ax.flat[2].imshow(mppca[:,:,d3].T, cmap=xcmp, interpolation='none',origin='lower')
+                    ax.flat[0].imshow(mppca[d0,:,:].T, cmap=xcmp, interpolation='none',origin='lower')
+                    ax.flat[1].imshow(mppca[:,d1,:].T, cmap=xcmp, interpolation='none',origin='lower')
+                    ax.flat[2].imshow(mppca[:,:,d2].T, cmap=xcmp, interpolation='none',origin='lower')
 
                     sfig0 = self.join('tmp', sub, 'imgs', 'mrtrix3_mppca', f'{sub}_{d}_noise.png')
                     fig0.savefig(sfig0)
