@@ -841,6 +841,238 @@ class DwiPreprocessingClab():
         if self.telegram:
             self.log_ok('ALL', f'Gibbs ringing correction completed successfully for {len(self.subs)} subjects')
             self.tg(f'Gibbs ringing correction completed for all {len(self.subs)} subjects')
+    def mppca(self):
+        # Quicker and less aggressive denoising method implemented in mrtrix3
+        # https://mrtrix.readthedocs.io/en/latest/reference/commands/mppca.html
+
+        print(f'{len(self.subs)} subjects to process')
+        self.log_info('ALL', f'Running mrtrix3_mppca denoising for {len(self.subs)} subjects')
+        self.log_subdump(self.subs)
+
+        # Loop over subjects
+        for i, sub in enumerate(self.subs): 
+
+            # Run mppca denoise
+            # if dir exists in derivatives
+
+            # Log start
+            self.log_subjectStart(sub, 'mrtrix3_mppca')
+
+            if not self.exists(self.join(self.dataout, sub)):
+                self.log_warning(f'{sub}', f'mrtrix3_mppca: Output directory does not exist, skipping subject')
+                print(f'Output directory does not exist, skipping subject: {sub}')
+                self.log_subjectEnd(sub, 'mrtrix3_mppca')
+                continue
+            
+            # make tmp dirs
+            self.mkdir(self.join('tmp', sub))
+            self.mkdir(self.join('tmp', sub, 'imgs'))
+            self.mkdir(self.join('tmp', sub, 'imgs', 'mrtrix3_mppca'))
+            self.mkdir(self.join('tmp', sub, 'sigma_noise'))
+
+            # copy required files
+            files = ['_AP_gib.nii.gz', '_PA_gib.nii.gz', '_AP.nii', '_PA.nii', '_AP.bval', '_AP.bvec']    
+            for f in files:
+                try:
+                    self.copyfile(self.join(self.dataout, sub, sub+f), self.join('tmp', sub, sub+f))
+                    self.log_ok(f'{sub}', f'mrtrix3_mppca: Copied {sub+f} to tmp folder')
+                except:
+                    self.log_error(f'{sub}', f'mrtrix3_mppca: Could not copy file {f}')
+                    print(f'Could not copy file {f}')
+                    self.log_subjectEnd(sub, 'mrtrix3_mppca')
+                    continue
+
+            
+            # Load data, raw and gibbs
+            # Load raw for sigma estimation
+            try:
+                ap_raw, __ = self.load_nifti(self.join('tmp', sub, sub + '_AP.nii'))
+                pa_raw, __ = self.load_nifti(self.join('tmp', sub, sub + '_PA.nii'))
+                # Load gibbs, for sigma and patch2self
+                ap_gib, ap_gib_aff = self.load_nifti(self.join('tmp', sub, sub + '_AP_gib.nii.gz'))
+                pa_gib, pa_gib_aff = self.load_nifti(self.join('tmp', sub, sub + '_PA_gib.nii.gz'))
+                ap_bval = np.loadtxt(self.join('tmp', sub, f'{sub}_AP.bval'))
+                pa_bval = np.array([5.,5.,5.,5.,5.])
+            except:
+                self.log_error(f'{sub}', f'mrtrix3_mppca: Could not load data')
+                print(f'{sub} Could not load data')
+                self.log_subjectEnd(sub, 'mrtrix3_mppca')
+                continue
+
+            # Estimate sigma for raw volumes
+            try:
+                s_ap_raw = estimate_sigma(ap_raw, N = self.n_coils)
+                s_pa_raw = estimate_sigma(pa_raw, N = self.n_coils)
+                np.save(self.join('tmp', sub, 'sigma_noise', f'{sub}_AP_raw_sigma.npy'), s_ap_raw)
+                np.save(self.join('tmp', sub, 'sigma_noise', f'{sub}_PA_raw_sigma.npy'), s_pa_raw)
+            except:
+                self.log_error(f'{sub}', f'mrtrix3_mppca: Could not estimate sigma for raw volumes')
+                print(f'{sub} Could not estimate sigma for raw volumes')
+                self.log_subjectEnd(sub, 'mrtrix3_mppca')
+                continue
+
+            # Estimate sigma for gibbs volumes
+            try:
+                s_ap_gib = estimate_sigma(ap_gib, N = self.n_coils)
+                s_pa_gib = estimate_sigma(pa_gib, N = self.n_coils)
+                np.save(self.join('tmp', sub, 'sigma_noise', f'{sub}_AP_gib_sigma.npy'), s_ap_gib)
+                np.save(self.join('tmp', sub, 'sigma_noise', f'{sub}_PA_gib_sigma.npy'), s_pa_gib)
+            except:
+                self.log_error(f'{sub}', f'mrtrix3_mppca: Could not estimate sigma for gibbs volumes')
+                print(f'{sub} Could not estimate sigma for gibbs volumes')
+                self.log_subjectEnd(sub, 'mrtrix3_mppca')
+                continue
+            
+            # run mrtrix3_mppca on AP
+            try:
+                # run mrtrix3_mppca
+                self.sp.run(f'dwidenoise -ntreads {self.threads} {self.join("tmp", sub, sub+"_AP_gib.nii.gz")} {self.join("tmp", sub, sub+"_AP_gib_mppca.nii.gz")} \
+                    -noise {self.join("tmp", sub, "imgs", "mrtrix3_mppca", sub+"_AP_mppca_noise.nii.gz")}', shell=True)
+                self.log_ok(f'{sub}', f'mrtrix3_mppca: AP completed successfully')
+            except:
+                self.log_error(f'{sub}', f'mrtrix3_mppca: AP failed')
+                print(f'{sub} AP mrtrix3_mppca failed')
+                self.log_subjectEnd(sub, 'mrtrix3_mppca')
+                continue
+            
+            # run mrtrix3_mppca on PA
+            try:
+                # run mrtrix3_mppca
+                self.sp.run(f'dwidenoise -ntreads {self.threads} {self.join("tmp", sub, sub+"_PA_gib.nii.gz")} {self.join("tmp", sub, sub+"_PA_gib_mppca.nii.gz")} \
+                    -noise {self.join("tmp", sub, "imgs", "mrtrix3_mppca", sub+"_PA_mppca_noise.nii.gz")}', shell=True)
+                self.log_ok(f'{sub}', f'mrtrix3_mppca: PA completed successfully')
+            except:
+                self.log_error(f'{sub}', f'mrtrix3_mppca: PA failed')
+                print(f'{sub} PA mrtrix3_mppca failed')
+                continue
+            
+            # estimate sigma for AP and PA
+            try:
+                ap_mppca, __ = self.load_nifti(self.join('tmp', sub, sub + '_AP_gib_mppca.nii.gz'))
+                pa_mppca, __ = self.load_nifti(self.join('tmp', sub, sub + '_PA_gib_mppca.nii.gz'))
+                s_ap_mppca = estimate_sigma(ap_mppca, N = self.n_coils)
+                s_pa_mppca = estimate_sigma(pa_mppca, N = self.n_coils)
+                np.save(self.join('tmp', sub, 'sigma_noise', f'{sub}_AP_gib_mppca_sigma.npy'), s_ap_mppca)
+                np.save(self.join('tmp', sub, 'sigma_noise', f'{sub}_PA_gib_mppca_sigma.npy'), s_pa_mppca)
+            except:
+                self.log_error(f'{sub}', f'mrtrix3_mppca: Could not estimate sigma for mrtrix3_mppca volumes')
+                print(f'{sub} Could not estimate sigma for mrtrix3_mppca volumes')
+                self.log_subjectEnd(sub, 'mrtrix3_mppca')
+                continue
+            
+            
+            self.log_info(f'{sub}', f'mrtrix3_mppca: plotting all volumes')
+            # plot volumes - noise residuals
+            xcmp = 'gray'
+            s = 42
+            for d in ['AP', 'PA']:
+
+                if d == 'AP':
+                    bvl = ap_bval
+                    gib = ap_gib
+                    raw = ap_raw
+                    mpp = ap_mppca
+                    sgib = s_ap_gib
+                    sraw = s_ap_raw
+                    smpp = s_ap_mppca
+                else:
+                    bvl = pa_bval
+                    gib = pa_gib
+                    raw = pa_raw
+                    mpp = pa_mppca
+                    sgib = s_pa_gib
+                    sraw = s_pa_raw
+                    smpp = s_pa_mppca
+
+
+                for i, vs in enumerate(range(0, raw.shape[3])):
+
+                    # computes the residuals
+                    rms_gibmppca = np.sqrt(abs((gib[:,:,s,vs] - mpp[:,:,s,vs]) ** 2))
+                    rms_rawmppca = np.sqrt(abs((raw[:,:,s,vs] - mpp[:,:,s,vs]) ** 2))
+
+                    fig1, ax = plt.subplots(2, 3, figsize=(12, 12),subplot_kw={'xticks': [], 'yticks': []})
+                
+                    fig1.subplots_adjust(hspace=0.05, wspace=0.05)
+                    fig1.suptitle(f'{sub} {d} vol={vs} bval={int(bvl[i])}', fontsize =20)
+
+                    # Raw image
+                    ax.flat[0].imshow(raw[:,:,s,vs].T, cmap=xcmp, interpolation='none',origin='lower')
+                    ax.flat[0].set_title('Raw, ' + r'$\sigma_{noise}$' + f' = {round(sraw[i])}')
+                    # Gibbs image
+                    ax.flat[1].imshow(gib[:,:,s,vs].T, cmap=xcmp, interpolation='none',origin='lower')
+                    ax.flat[1].set_title('Gibbs, ' + r'$\sigma_{noise}$' + f' = {round(sgib[i])}')
+                    # mppca image
+                    ax.flat[2].imshow(mpp[:,:,s,vs].T, cmap=xcmp, interpolation='none',origin='lower')
+                    ax.flat[2].set_title('MPPCA, ' + r'$\sigma_{noise}$' + f' = {round(smpp[i])}')
+                    # Raw - p2s
+                    ax.flat[3].imshow(rms_rawmppca.T, cmap=xcmp, interpolation='none',origin='lower')
+                    ax.flat[3].set_title('Raw - MPPCA')
+                    # Gibbs - p2s
+                    ax.flat[4].imshow(rms_gibmppca.T, cmap=xcmp, interpolation='none',origin='lower')
+                    ax.flat[4].set_title('Gibbs - MPPCA')
+                    
+                    sfig = self.join('tmp', sub, 'imgs', 'mrtrix3_mppca', f'{sub}_{d}_v-{1000+int(vs)}.png')
+                    fig1.savefig(sfig)
+
+                    plt.close()
+
+            # Plot the noise residuals
+            self.log_info(f'{sub}', f'mrtrix3_mppca: plotting noise residuals')
+            for d in ['AP', 'PA']:
+                fig0, ax = plt.subplots(1, 3, figsize=(6, 12),subplot_kw={'xticks': [], 'yticks': []})
+                fig0.subplots_adjust(hspace=0.05, wspace=0.05)
+                fig0.suptitle(f'{sub} {d} MPPCA noise residuals', fontsize =20)
+                if d == 'AP':
+                    mppca = ap_mppca
+                else:
+                    mppca = pa_mppca
+                # Plot the noise residuals
+                ax.flat[0].imshow(mppca[:,:,s].T, cmap=xcmp, interpolation='none',origin='lower')
+                ax.flat[1].imshow(mppca[:,s,:].T, cmap=xcmp, interpolation='none',origin='lower')
+                ax.flat[2].imshow(mppca[s,:,:].T, cmap=xcmp, interpolation='none',origin='lower')
+
+                sfig0 = self.join('tmp', sub, 'imgs', 'mrtrix3_mppca', f'{sub}_{d}_noise_residuals.png')
+                fig0.savefig(sfig0)
+                plt.close()
+
+            self.log_ok(f'{sub}', f'mrtrix3_mppca: plotting all volumes completed successfully')
+            # move all files to derivatives
+            if self.copy:
+                self.log_info(f'{sub}', f'mrtrix3_mppca: copying files to derivatives')
+                try:
+                    # yet again the shutil copy fails me, fallback to the cp method
+                    for file in ['_AP_gib_mppca.nii.gz', '_PA_gib_mppca.nii.gz']:
+                        self.sp.run(f'cp {self.join("tmp", sub, sub+file)} {self.join(self.dataout, sub, sub+file)}', shell=True)
+                        self.log_ok(f'sub', f'mrtrix3_mppca: copied {sub+file} to {self.dataout}')
+
+                    self.sp.run(f'cp -r {self.join("tmp", sub, "imgs", "mrtrix3_mppca")} {self.join(self.dataout, sub, "imgs")}', shell=True)
+                    self.sp.run(f'cp -r {self.join("tmp", sub, "sigma_noise")} {self.join(self.dataout, sub)}', shell=True)
+                    self.log_ok(f'{sub}', f'mrtrix3_mppca: all files copied to derivatives')
+                except:
+                    self.log_error(f'{sub}', f'mrtrix3_mppca: files not copied to derivatives')
+                    print(f'{sub} files not copied to derivatives')
+                    self.log_subjectEnd(sub, 'mrtrix3_mppca')
+                    continue
+
+            if self.clean:
+                self.log_info(f'{sub}', f'mrtrix3_mppca: cleaning tmp folder')
+                try:
+                    #self.rmtree(self.join('tmp', sub))
+                    self.sp.run(f'rm -rf {self.join("tmp", sub)}', shell=True)
+                    self.log_ok(f'{sub}', f'mrtrix3_mppca: tmp folder cleaned')
+                except:
+                    self.log_error(f'{sub}', f'mrtrix3_mppca: tmp folder not cleaned')
+                    print(f'{sub} tmp folder not cleaned')
+                    self.log_subjectEnd(sub, 'mrtrix3_mppca')
+                    continue
+
+            self.log_subjectEnd(sub, 'mrtrix3_mppca')
+        
+        if self.telegram:
+            self.log_ok('ALL', f'mrtrix3_mppca completed successfully for {len(self.subs)} subjects')
+            self.tg(f'mrtrix3_mppca completed for all {len(self.subs)} subjects')
+
 
     def patch2self(self):
         # Runs patch to self denoising on the data
@@ -851,7 +1083,7 @@ class DwiPreprocessingClab():
         # from dipy.denoise.denspeed import determine_num_threads
         import matplotlib.pyplot as plt
         import numpy as np
-        from fun.eta import Eta
+        from fun.eta import Eta # this takes around a week on a 80 thread meachine and 300 subs
 
         # set number of threads
         # determine_num_threads(self.threads)
