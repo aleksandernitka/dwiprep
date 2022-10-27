@@ -966,89 +966,101 @@ class DwiPreprocessingClab():
             self.log_info(f'{sub}', f'mrtrix3_mppca: plotting all volumes')
             # plot volumes - noise residuals
             xcmp = 'gray'
-            s = 42
-            for d in ['AP', 'PA']:
+            try:
+                for d in ['AP', 'PA']:
 
-                if d == 'AP':
-                    bvl = ap_bval
-                    gib = ap_gib
-                    raw = ap_raw
-                    mpp = ap_mppca
-                    sgib = s_ap_gib
-                    sraw = s_ap_raw
-                    smpp = s_ap_mppca
-                    resi, __ = self.load_nifti(self.join("tmp", sub, "imgs", "mrtrix3_mppca", sub+"_AP_mppca_resid.nii.gz"))
-                else:
-                    bvl = pa_bval
-                    gib = pa_gib
-                    raw = pa_raw
-                    mpp = pa_mppca
-                    sgib = s_pa_gib
-                    sraw = s_pa_raw
-                    smpp = s_pa_mppca
-                    resi, __ = self.load_nifti(self.join("tmp", sub, "imgs", "mrtrix3_mppca", sub+"_PA_mppca_resid.nii.gz"))
+                    if d == 'AP':
+                        bvl = ap_bval
+                        gib = ap_gib
+                        raw = ap_raw
+                        mpp = ap_mppca
+                        sgib = s_ap_gib
+                        sraw = s_ap_raw
+                        smpp = s_ap_mppca
+                        resi, __ = self.load_nifti(self.join("tmp", sub, "imgs", "mrtrix3_mppca", sub+"_AP_mppca_resid.nii.gz"))
+                    else:
+                        bvl = pa_bval
+                        gib = pa_gib
+                        raw = pa_raw
+                        mpp = pa_mppca
+                        sgib = s_pa_gib
+                        sraw = s_pa_raw
+                        smpp = s_pa_mppca
+                        resi, __ = self.load_nifti(self.join("tmp", sub, "imgs", "mrtrix3_mppca", sub+"_PA_mppca_resid.nii.gz"))
 
+                    # Take the middle slice in all dimensions of an image
+                    d0 = round(raw.shape[0]/2)
+                    d1 = round(raw.shape[1]/2)
+                    d2 = round(raw.shape[2]/2)
 
-                for i, vs in enumerate(range(0, raw.shape[3])):
+                    for i, vs in enumerate(range(0, raw.shape[3])):
 
-                    # computes the residuals
-                    #rms_gibmppca = np.sqrt(abs((gib[:,:,s,vs] - mpp[:,:,s,vs]) ** 2))
-                    #rms_rawmppca = np.sqrt(abs((raw[:,:,s,vs] - mpp[:,:,s,vs]) ** 2))
+                        # computes the residuals
+                        #rms_gibmppca = np.sqrt(abs((gib[:,:,s,vs] - mpp[:,:,s,vs]) ** 2))
+                        #rms_rawmppca = np.sqrt(abs((raw[:,:,s,vs] - mpp[:,:,s,vs]) ** 2))
 
-                    fig1, ax = plt.subplots(4, 3, figsize=(16, 12),subplot_kw={'xticks': [], 'yticks': []})
-                
-                    fig1.subplots_adjust(hspace=0.05, wspace=0.05)
-                    fig1.suptitle(f'{sub} {d} vol={vs} bval={int(bvl[i])}', fontsize =20)
-
-                    # Raw image
-                    ax.flat[0].imshow(raw[:,:,s,vs].T, cmap=xcmp, interpolation='none',origin='lower')
-                    ax.flat[1].imshow(raw[:,s,:,vs].T, cmap=xcmp, interpolation='none',origin='lower')
-                    ax.flat[1].set_title('Raw, ' + r'$\sigma_{noise}$' + f' = {round(sraw[i])}')
-                    ax.flat[2].imshow(raw[s,:,:,vs].T, cmap=xcmp, interpolation='none',origin='lower')
-
-                    # Gibbs image
-                    ax.flat[3].imshow(gib[:,:,s,vs].T, cmap=xcmp, interpolation='none',origin='lower')
-                    ax.flat[4].imshow(gib[:,:,s,vs].T, cmap=xcmp, interpolation='none',origin='lower')
-                    ax.flat[4].set_title('Gibbs, ' + r'$\sigma_{noise}$' + f' = {round(sgib[i])}')
-                    ax.flat[5].imshow(gib[:,:,s,vs].T, cmap=xcmp, interpolation='none',origin='lower')
+                        fig1, ax = plt.subplots(4, 3, figsize=(12, 8),subplot_kw={'xticks': [], 'yticks': []})
                     
-                    # mppca image
-                    ax.flat[6].imshow(mpp[:,:,s,vs].T, cmap=xcmp, interpolation='none',origin='lower')
-                    ax.flat[7].imshow(mpp[:,:,s,vs].T, cmap=xcmp, interpolation='none',origin='lower')
-                    ax.flat[7].set_title('MPPCA, ' + r'$\sigma_{noise}$' + f' = {round(smpp[i])}')
-                    ax.flat[8].imshow(mpp[:,:,s,vs].T, cmap=xcmp, interpolation='none',origin='lower')
-                    
-                    # Residuals GIBBS - MPPCA
-                    ax.flat[9].imshow(resi[:,:,s,vs].T, cmap=xcmp, interpolation='none',origin='lower')
-                    ax.flat[10].imshow(resi[:,:,s,vs].T, cmap=xcmp, interpolation='none',origin='lower')
-                    ax.flat[10].set_title('Residuals Gibbs - MPPCA')
-                    ax.flat[11].imshow(resi[:,:,s,vs].T, cmap=xcmp, interpolation='none',origin='lower')
-                    
-                    sfig = self.join('tmp', sub, 'imgs', 'mrtrix3_mppca', f'{sub}_{d}_v-{1000+int(vs)}.png')
-                    fig1.savefig(sfig)
+                        #fig1.subplots_adjust(hspace=0.05, wspace=0.05)
+                        fig1.suptitle(f'{sub} {d} vol={vs} bval={int(bvl[i])}', fontsize=15)
 
-                    plt.close()
+                        # Raw image
+                        ax.flat[0].imshow(raw[d0,:,:,vs].T, cmap=xcmp, interpolation='none',origin='lower')
+                        ax.flat[1].imshow(raw[:,d1,:,vs].T, cmap=xcmp, interpolation='none',origin='lower')
+                        ax.flat[1].set_title('Raw, ' + r'$\sigma_{noise}$' + f' = {round(sraw[i])}')
+                        ax.flat[2].imshow(raw[:,:,d2,vs].T, cmap=xcmp, interpolation='none',origin='lower')
+
+                        # Gibbs image
+                        ax.flat[3].imshow(gib[d0,:,:,vs].T, cmap=xcmp, interpolation='none',origin='lower')
+                        ax.flat[4].imshow(gib[:,d1,:,vs].T, cmap=xcmp, interpolation='none',origin='lower')
+                        ax.flat[4].set_title('Gibbs, ' + r'$\sigma_{noise}$' + f' = {round(sgib[i])}')
+                        ax.flat[5].imshow(gib[:,:,d2,vs].T, cmap=xcmp, interpolation='none',origin='lower')
+                        
+                        # mppca image
+                        ax.flat[6].imshow(mpp[d0,:,:,vs].T, cmap=xcmp, interpolation='none',origin='lower')
+                        ax.flat[7].imshow(mpp[:,d1,:,vs].T, cmap=xcmp, interpolation='none',origin='lower')
+                        ax.flat[7].set_title('MPPCA, ' + r'$\sigma_{noise}$' + f' = {round(smpp[i])}')
+                        ax.flat[8].imshow(mpp[:,:,d2,vs].T, cmap=xcmp, interpolation='none',origin='lower')
+                        
+                        # Residuals GIBBS - MPPCA
+                        ax.flat[9].imshow(resi[d0,:,:,vs].T, cmap=xcmp, interpolation='none',origin='lower')
+                        ax.flat[10].imshow(resi[:,d1,:,vs].T, cmap=xcmp, interpolation='none',origin='lower')
+                        ax.flat[10].set_title('Residuals Gibbs - MPPCA')
+                        ax.flat[11].imshow(resi[:,:,d2,vs].T, cmap=xcmp, interpolation='none',origin='lower')
+                        
+                        sfig = self.join('tmp', sub, 'imgs', 'mrtrix3_mppca', f'{sub}_{d}_v-{1000+int(vs)}.png')
+                        fig1.savefig(sfig)
+
+                        plt.close()
+            except:
+                self.log_error(f'{sub}', f'mrtrix3_mppca: error while plotting volumes')
+                print(f'{sub} Error while plotting volumes')
+
 
             # Plot the noise residuals
             self.log_info(f'{sub}', f'mrtrix3_mppca: plotting noise')
-            for d in ['AP', 'PA']:
-                fig0, ax = plt.subplots(1, 3, figsize=(6, 12),subplot_kw={'xticks': [], 'yticks': []})
-                fig0.subplots_adjust(hspace=0.05, wspace=0.05)
-                fig0.suptitle(f'{sub} {d} MPPCA noise residuals', fontsize =20)
-                if d == 'AP':
-                    mppca = ap_mppca
-                else:
-                    mppca = pa_mppca
-                # Plot the noise residuals
-                ax.flat[0].imshow(mppca[:,:,s].T, cmap=xcmp, interpolation='none',origin='lower')
-                ax.flat[1].imshow(mppca[:,s,:].T, cmap=xcmp, interpolation='none',origin='lower')
-                ax.flat[2].imshow(mppca[s,:,:].T, cmap=xcmp, interpolation='none',origin='lower')
+            try:
+                for d in ['AP', 'PA']:
+                    fig0, ax = plt.subplots(1, 3, figsize=(6, 12),subplot_kw={'xticks': [], 'yticks': []})
+                    fig0.subplots_adjust(hspace=0.05, wspace=0.05)
+                    fig0.suptitle(f'{sub} {d} MPPCA noise residuals', fontsize =20)
+                    if d == 'AP':
+                        mppca = ap_mppca
+                    else:
+                        mppca = pa_mppca
+                    # Plot the noise residuals
+                    ax.flat[0].imshow(mppca[d1,:,:].T, cmap=xcmp, interpolation='none',origin='lower')
+                    ax.flat[1].imshow(mppca[:,d2,:].T, cmap=xcmp, interpolation='none',origin='lower')
+                    ax.flat[2].imshow(mppca[:,:,d3].T, cmap=xcmp, interpolation='none',origin='lower')
 
-                sfig0 = self.join('tmp', sub, 'imgs', 'mrtrix3_mppca', f'{sub}_{d}_noise.png')
-                fig0.savefig(sfig0)
-                plt.close()
+                    sfig0 = self.join('tmp', sub, 'imgs', 'mrtrix3_mppca', f'{sub}_{d}_noise.png')
+                    fig0.savefig(sfig0)
+                    plt.close()
+            except:
+                self.log_error(f'{sub}', f'mrtrix3_mppca: error while plotting noise')
+                print(f'{sub} Error while plotting noise')
 
-            self.log_ok(f'{sub}', f'mrtrix3_mppca: plotting completed successfully')
+            self.log_ok(f'{sub}', f'mrtrix3_mppca: plotting completed')
             
             # move all files to derivatives
             if self.copy:
