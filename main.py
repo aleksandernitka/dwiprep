@@ -849,6 +849,7 @@ class DwiPreprocessingClab():
 
         # skip_processed if True it will check if the subject has been processed and skip it
         # specifically it will ceck for AP and PA nii.gz file with mppca in the name
+        # May want to adjust the skip_processed to check for specific filename, which depends on preprocessing steps.
 
         from dipy.denoise.noise_estimate import estimate_sigma
         import matplotlib.pyplot as plt
@@ -862,8 +863,8 @@ class DwiPreprocessingClab():
         for i, sub in enumerate(self.subs): 
 
             if skip_processed:
-                if self.exists(self.join(self.dataout, sub, sub + '_AP_mppca.nii.gz')) and self.exists(self.join(self.dataout, sub, sub + '_PA_mppca.nii.gz')):
-                    self.log_ok(f'{sub}', f'Subject {sub} already processed, skipping')
+                if self.exists(self.join(self.dataout, sub, sub + '_AP_gib_mppca.nii.gz')) and self.exists(self.join(self.dataout, sub, sub + '_PA_gib_mppca.nii.gz')):
+                    self.log_ok(f'{sub}', f'Subject {sub} already processed, skipping subject')
                     print(f'{sub} {i+1} out of {len(self.subs)} - already processed, skipping')
                     continue
             
