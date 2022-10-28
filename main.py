@@ -1,7 +1,4 @@
 
-from curses import pair_number
-
-
 class DwiPreprocessingClab():
 
     # TODO - at each step of the pipeline drop a file with some details, time and date as infor for qa.
@@ -846,9 +843,12 @@ class DwiPreprocessingClab():
             self.log_ok('ALL', f'Gibbs ringing correction completed successfully for {len(self.subs)} subjects')
             self.tg(f'Gibbs ringing correction completed for all {len(self.subs)} subjects')
          
-    def mppca(self):
+    def mppca(self, skip_processed):
         # Quicker and less aggressive denoising method implemented in mrtrix3
         # https://mrtrix.readthedocs.io/en/latest/reference/commands/mppca.html
+
+        # skip_processed if True it will check if the subject has been processed and skip it
+        # specifically it will ceck for AP and PA nii.gz file with mppca in the name
 
         from dipy.denoise.noise_estimate import estimate_sigma
         import matplotlib.pyplot as plt
@@ -861,6 +861,13 @@ class DwiPreprocessingClab():
         # Loop over subjects
         for i, sub in enumerate(self.subs): 
 
+            if skip_processed:
+                if self.exists(self.join(self.dataout, sub, sub + '_AP_mppca.nii.gz')) and self.exists(self.join(self.dataout, sub, sub + '_PA_mppca.nii.gz')):
+                    self.log_ok(f'{sub}', f'Subject {sub} already processed, skipping')
+                    print(f'{sub} {i+1} out of {len(self.subs)} - already processed, skipping')
+                    continue
+            
+            print(f'\n{sub} {i+1} out of {len(self.subs)} - processing')
             # Run mppca denoise
             # if dir exists in derivatives
 
@@ -1099,6 +1106,7 @@ class DwiPreprocessingClab():
 
     def patch2self(self):
         # Runs patch to self denoising on the data
+        # TODO implement subject skipp is processed. Look for AP, PA file with p2s in the name
 
         from dipy.core.gradients import gradient_table
         from dipy.denoise.patch2self import patch2self
