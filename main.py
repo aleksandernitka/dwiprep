@@ -1369,7 +1369,8 @@ class DwiPreprocessingClab():
 
         import json
         import matplotlib.pyplot as plt
-        from fun.eta import Eta
+        #from fun.eta import Eta
+        from dipy.core.gradients import gradient_table
 
         # Runs FSL topup via subprocess
         # https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/topup
@@ -1382,12 +1383,7 @@ class DwiPreprocessingClab():
         # dump the list of subjects to process to a file
         self.log_subdump(self.subs)
 
-        # Timer and ETA
-        eta_p2s = Eta(mode='median', N = len(self.subs))
-        # TODO implement timer
-
         # Loop over subjects
-        # FIXME list of subjects from csv or tsv to run instad of all files. 
         for i, sub in enumerate(self.subs): 
 
             # Run topup
@@ -1402,15 +1398,13 @@ class DwiPreprocessingClab():
                 self.log_subjectEnd(sub, 'topup')
                 continue
             
-            # Timer update, return ETA to log
-            self.log_info(sub, eta_p2s.update())
             # make tmp dirs
             self.mkdir(self.join('tmp', sub))
             self.mkdir(self.join('tmp', sub, 'imgs'))
             self.mkdir(self.join('tmp', sub, 'imgs', 'topup'))
 
             # copy required files
-            files = ['_AP_p2s.nii.gz', '_PA_p2s.nii.gz', '_AP.json', '_PA.json', '_AP.bval', '_AP.bvec']    
+            files = ['_AP_gib_mppca.nii.gz', '_PA_gib_mppca.nii.gz', '_AP.json', '_PA.json', '_AP.bval', '_AP.bvec']    
             for f in files:
                 try:
                     self.copyfile(self.join(self.dataout, sub, sub+f), self.join('tmp', sub, sub+f))
@@ -1424,6 +1418,31 @@ class DwiPreprocessingClab():
             # create acqparams.txt for topup
             # 0 1 0 TotalReadoutTime AP
             # 0 -1 0 TotalReadoutTime PA
+
+            # Create b0 mask
+            gtab = gradient_table(f'tmp/{sid}/{sid}_AP.bval', f'tmp/{sid}/{sid}_AP.bvec')
+
+            # Extract b0s
+            apim = self.join('tmp', sub, sub+'_AP_gib_mppca.nii.gz')
+            paim = self.join('tmp', sub, sub+'_PA_gib_mppca.nii.gz')
+            apb0 = self.join('tmp', sub, sub+'_AP_gib_mppca_b0s.nii.gz') # single b in AP direction
+            pab0 = self.join('tmp', sub, sub+'_PA_gib_mppca_b0s.nii.gz') # single b in PA direction
+            b0im = self.join('tmp', sub, sub+'_gib_mppca_b0s.nii.gz') # merged b0s AP + PA
+
+            # Load volumes
+            dwi_ap, affine_ap = self.load_nifti(apim)
+            dwi_pa, affine_pa = self.load_nifti(paim)
+
+            # Extract b0s
+            b0s_ap = dwi_ap[:,:,:,gtab.b0s_mask]
+            b0s_pa = dwi_pa[:,:,:,[True, True, True, True, False]]
+
+            # Save volumes of b0s
+            self.save_nifti(b0s_ap, affine_ap, apb0)
+            self.save_nifti(b0s_pa, affine_pa, pab0)
+
+            # Merge into one AP-PA file
+            self.sp.run(f'fslmerge -t {b0im} {apb0} {pab0}', shell=True)
 
             # Load sidecar jsons and read TRT
             ds = ['AP', 'PA']
@@ -1439,37 +1458,26 @@ class DwiPreprocessingClab():
                         # TODO log
                     f.close()
 
-            with open(self.join("tmp", sub, f"{sub}_acqparams.txt"), "w") as f:
-                f.write(f"0 1 0 {ap_ro}\n")
-                f.write(f"0 -1 0 {pa_ro}\n")
+            acqpar = self.join("tmp", sub, f"{sub}_acqparams.txt")
+            with open(acqpar, "w") as f:
+                # for each vol in AP and for each vol in PA
+                for v in range(0, apb0.shape[3]):
+                    f.write(f"0 1 0 {ap_ro}\n")
+                for v in range(0, pab0.shape[3]):
+                    f.write(f"0 -1 0 {pa_ro}\n")
                 f.close()
-            
-            # Extract b0s
-            apim = self.join('tmp', sub, sub+'_AP_p2s.nii.gz')
-            paim = self.join('tmp', sub, sub+'_PA_p2s.nii.gz')
-            apb0 = self.join('tmp', sub, sub+'_AP_b0.nii.gz') # single b in AP direction
-            pab0 = self.join('tmp', sub, sub+'_PA_b0.nii.gz') # single b in PA direction
-            b0im = self.join('tmp', sub, sub+'_b0s.nii.gz') # merged b0s AP + PA
-
-            # Extract single b0 from AP and PA
-            self.sp.run(f'fslroi {apim} {apb0} 0 1', shell=True)
-            self.sp.run(f'fslroi {paim} {pab0} 0 1', shell=True)
-            # Merge into one AP-PA file
-            self.sp.run(f'fslmerge -t {b0im} {apb0} {pab0}', shell=True)
-
-            # Control figures for b0s
-            iap,__ = self.load_nifti(apb0)    
-            ipa,__ = self.load_nifti(pab0)
-            fig1, ax = plt.subplots(1, 2, figsize=(12, 6),subplot_kw={'xticks': [], 'yticks': []})
-            fig1.subplots_adjust(hspace=0.05, wspace=0.05)
-            fig1.suptitle(f'{sub}', fontsize = 20)
-            ax.flat[0].imshow(iap[:,:,42].T, cmap='gray', interpolation='none',origin='lower')
-            ax.flat[0].set_title('AP')
-            ax.flat[1].imshow(ipa[:,:,42].T, cmap='gray', interpolation='none',origin='lower')
-            ax.flat[1].set_title('PA')
-            fig1.savefig(self.join('tmp', sub, 'imgs', 'topup', f'{sub}_b0s_pretopup.png'))
 
             # Run topup
-            self.sp.run(f'topup --imain={b0im} --datain={self.join("tmp", sub, f"{sub}_acqparams.txt")} --config=b02b0.cnf --out={self.join("tmp", sub, f"{sub}_topup_results")} --iout={self.join("tmp", sub, f"{sub}_b0_corrected.nii.gz")}', shell=True)
+            self.sp.run(f'topup --imain={b0im} --datain={acqpar} --config=b02b0.cnf \
+            --out={self.join("tmp", sub, f"{sub}_topup_results")} \
+            --iout={self.join("tmp", sub, f"{sub}_b0_corrected.nii.gz")}', shell=True)
 
+            # Copy results to derivatives
+
+            # Clean tmp
+
+            # Log end
             self.log_subjectEnd(sub, 'topup')
+
+        # Log end of all
+        # telegram send info
