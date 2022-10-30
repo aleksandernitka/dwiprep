@@ -1365,7 +1365,7 @@ class DwiPreprocessingClab():
             self.log_ok('ALL', f'Patch2Self completed successfully for {len(self.subs)} subjects')
             self.tg(f'Patch2Self completed for all {len(self.subs)} subjects')
 
-    def topup(self):
+    def topup(self, skip_processed):
 
         import json
         import matplotlib.pyplot as plt
@@ -1386,8 +1386,16 @@ class DwiPreprocessingClab():
         # Loop over subjects
         for i, sub in enumerate(self.subs): 
 
-            # Run topup
-            # if dir exists in derivatives
+            # set acqparams file, we will check if it exists and skip if it does
+            acqpar = self.join("tmp", sub, f"{sub}_acqparams.txt")
+
+            if skip_processed:
+                if self.exists(self.join(self.dataout, sub, sub + '_acqparams.txt')):
+                    self.log_ok(f'{sub}', f'Subject {sub} already processed, skipping subject')
+                    print(f'{sub} {i+1} out of {len(self.subs)} - already processed, skipping')
+                    continue
+
+            print(f'{sub} {i+1} out of {len(self.subs)} - processing')
 
             # Log start
             self.log_subjectStart(sub, 'topup')
@@ -1458,7 +1466,7 @@ class DwiPreprocessingClab():
                         # TODO log
                     f.close()
 
-            acqpar = self.join("tmp", sub, f"{sub}_acqparams.txt")
+
             with open(acqpar, "w") as f:
                 # for each vol in AP and for each vol in PA
                 for v in range(0, apb0.shape[3]):
@@ -1473,8 +1481,10 @@ class DwiPreprocessingClab():
             --iout={self.join("tmp", sub, f"{sub}_b0_corrected.nii.gz")}', shell=True)
 
             # Copy results to derivatives
+            # TODO find files which need to be copied
 
             # Clean tmp
+            
 
             # Log end
             self.log_subjectEnd(sub, 'topup')
