@@ -1489,7 +1489,7 @@ class DwiPreprocessingClab():
             # Run topup
             self.sp.run(f'topup --imain={b0im} --datain={acqpar} --config=b02b0.cnf \
             --out={self.join("tmp", sub, f"{sub}_topup_results")} \
-            --iout={self.join("tmp", sub, f"{sub}_b0_corrected.nii.gz") -v}', shell=True)
+            --iout={self.join("tmp", sub, f"{sub}_b0_corrected.nii.gz")} -v', shell=True)
 
             # Copy results to output folder
             if self.copy:
@@ -1528,3 +1528,7 @@ class DwiPreprocessingClab():
 
         # Log end of all
         # telegram send info
+        if self.telegram:
+            self.log_ok('ALL', f'Topup completed successfully for {len(self.subs)} subjects')
+            self.tg(f'Topup {self.task} completed for all {len(self.subs)} subjects')
+
