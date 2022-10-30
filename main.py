@@ -1446,8 +1446,8 @@ class DwiPreprocessingClab():
             b0s_pa = dwi_pa[:,:,:,[True, True, True, True, False]]
 
             # Save volumes of b0s
-            self.save_nifti(b0s_ap, apb0, affine_ap)
-            self.save_nifti(b0s_pa, pab0, affine_pa)
+            self.save_nifti(apb0, b0s_ap, affine_ap)
+            self.save_nifti(pab0, b0s_pa, affine_pa)
 
             # Merge into one AP-PA file
             self.sp.run(f'fslmerge -t {b0im} {apb0} {pab0}', shell=True)
@@ -1469,9 +1469,9 @@ class DwiPreprocessingClab():
 
             with open(acqpar, "w") as f:
                 # for each vol in AP and for each vol in PA
-                for v in range(0, apb0.shape[3]):
+                for v in range(0, b0s_ap.shape[3]):
                     f.write(f"0 1 0 {ap_ro}\n")
-                for v in range(0, pab0.shape[3]):
+                for v in range(0, b0s_pa.shape[3]):
                     f.write(f"0 -1 0 {pa_ro}\n")
                 f.close()
 
