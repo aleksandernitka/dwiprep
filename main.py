@@ -1408,8 +1408,8 @@ class DwiPreprocessingClab():
             
             # make tmp dirs
             self.mkdir(self.join('tmp', sub))
-            self.mkdir(self.join('tmp', sub, 'imgs'))
-            self.mkdir(self.join('tmp', sub, 'imgs', 'topup'))
+            # self.mkdir(self.join('tmp', sub, 'imgs'))
+            # self.mkdir(self.join('tmp', sub, 'imgs', 'topup'))
 
             # copy required files
             files = ['_AP_gib_mppca.nii.gz', '_PA_gib_mppca.nii.gz', '_AP.json', '_PA.json', '_AP.bval', '_AP.bvec']    
@@ -1426,9 +1426,14 @@ class DwiPreprocessingClab():
             # create acqparams.txt for topup
             # 0 1 0 TotalReadoutTime AP
             # 0 -1 0 TotalReadoutTime PA
-
-            # Create b0 mask
-            gtab = gradient_table(f'tmp/{sub}/{sub}_AP.bval', f'tmp/{sub}/{sub}_AP.bvec')
+            try:
+                # Create b0 mask
+                gtab = gradient_table(f'tmp/{sub}/{sub}_AP.bval', f'tmp/{sub}/{sub}_AP.bvec')
+            except:
+                self.log_error(f'{sub}', f'topup: Could not create gradient table')
+                print(f'{sub} Could not create gradient table')
+                self.log_subjectEnd(sub, 'topup')
+                continue
 
             # Extract b0s
             apim = self.join('tmp', sub, sub+'_AP_gib_mppca.nii.gz')
@@ -1452,39 +1457,71 @@ class DwiPreprocessingClab():
             # Merge into one AP-PA file
             self.sp.run(f'fslmerge -t {b0im} {apb0} {pab0}', shell=True)
 
-            # Load sidecar jsons and read TRT
-            ds = ['AP', 'PA']
-            for d in ds:
-                with open(self.join('tmp', sub, sub+f'_{d}.json')) as f:
-                    data = json.load(f)
-                    ro = data['TotalReadoutTime']
-                    if d == 'AP':
-                        ap_ro = ro
-                        # TODO log
-                    else:
-                        pa_ro = ro
-                        # TODO log
+            try:
+                # Load sidecar jsons and read TRT
+                ds = ['AP', 'PA']
+                for d in ds:
+                    with open(self.join('tmp', sub, sub+f'_{d}.json')) as f:
+                        data = json.load(f)
+                        ro = data['TotalReadoutTime']
+                        if d == 'AP':
+                            ap_ro = ro
+                            # TODO log
+                        else:
+                            pa_ro = ro
+                            # TODO log
+                        f.close()
+
+
+                with open(acqpar, "w") as f:
+                    # for each vol in AP and for each vol in PA
+                    for v in range(0, b0s_ap.shape[3]):
+                        f.write(f"0 1 0 {ap_ro}\n")
+                    for v in range(0, b0s_pa.shape[3]):
+                        f.write(f"0 -1 0 {pa_ro}\n")
                     f.close()
-
-
-            with open(acqpar, "w") as f:
-                # for each vol in AP and for each vol in PA
-                for v in range(0, b0s_ap.shape[3]):
-                    f.write(f"0 1 0 {ap_ro}\n")
-                for v in range(0, b0s_pa.shape[3]):
-                    f.write(f"0 -1 0 {pa_ro}\n")
-                f.close()
+            except:
+                self.log_error(f'{sub}', f'topup: Could not create acqparams.txt file')
+                print(f'{sub} Could not create acqparams.txt file')
+                self.log_subjectEnd(sub, 'topup')
+                continue
 
             # Run topup
             self.sp.run(f'topup --imain={b0im} --datain={acqpar} --config=b02b0.cnf \
             --out={self.join("tmp", sub, f"{sub}_topup_results")} \
-            --iout={self.join("tmp", sub, f"{sub}_b0_corrected.nii.gz")}', shell=True)
+            --iout={self.join("tmp", sub, f"{sub}_b0_corrected.nii.gz") -v}', shell=True)
 
-            # Copy results to derivatives
-            # TODO find files which need to be copied
-
-            # Clean tmp
+            # Copy results to output folder
+            if self.copy:
+                # Copy results to derivatives
+                files = [f'{sub}_AP_gib_mppca.nii.gz', f'{sub}_PA_gib_mppca.nii.gz', \
+                f'{sub}_AP.json', f'{sub}_PA.json', f'{sub}_AP.bval', f'{sub}_AP.bvec']
+                self.log_info(f'{sub}', f'topup: copying files to derivatives')
+                
+                try:
+                    # yet again the shutil copy fails me, fallback to the cp method
+                    for file in [f for f in self.ls(self.join('tmp', sub)) if f not in files and self.isfile(self.join('tmp', sub, f))]:
+                        self.sp.run(f'cp {self.join("tmp", sub, ile)} {self.join(self.dataout, sub, file)}', shell=True)
+                        self.log_ok(f'sub', f'topup: copied {file} to {self.dataout}')
+                    self.log_ok(f'{sub}', f'topup: all files copied to derivatives')
+                except:
+                    self.log_error(f'{sub}', f'topup: files not copied to derivatives')
+                    print(f'{sub} files not copied to derivatives')
+                    self.log_subjectEnd(sub, 'topup')
+                    continue
             
+            # Clean tmp
+            if self.clean:
+                self.log_info(f'{sub}', f'topup: cleaning tmp folder')
+                try:
+                    #self.rmtree(self.join('tmp', sub))
+                    self.sp.run(f'rm -rf {self.join("tmp", sub)}', shell=True)
+                    self.log_ok(f'{sub}', f'topup: tmp folder cleaned')
+                except:
+                    self.log_error(f'{sub}', f'topup: tmp folder not cleaned')
+                    print(f'{sub} tmp folder not cleaned')
+                    self.log_subjectEnd(sub, 'topup')
+                    continue
 
             # Log end
             self.log_subjectEnd(sub, 'topup')
