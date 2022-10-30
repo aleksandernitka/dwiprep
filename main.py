@@ -1428,7 +1428,7 @@ class DwiPreprocessingClab():
             # 0 -1 0 TotalReadoutTime PA
 
             # Create b0 mask
-            gtab = gradient_table(f'tmp/{sid}/{sid}_AP.bval', f'tmp/{sid}/{sid}_AP.bvec')
+            gtab = gradient_table(f'tmp/{sub}/{sub}_AP.bval', f'tmp/{sub}/{sub}_AP.bvec')
 
             # Extract b0s
             apim = self.join('tmp', sub, sub+'_AP_gib_mppca.nii.gz')
