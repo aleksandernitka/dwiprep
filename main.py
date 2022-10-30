@@ -1446,8 +1446,8 @@ class DwiPreprocessingClab():
             b0s_pa = dwi_pa[:,:,:,[True, True, True, True, False]]
 
             # Save volumes of b0s
-            self.save_nifti(b0s_ap, affine_ap, apb0)
-            self.save_nifti(b0s_pa, affine_pa, pab0)
+            self.save_nifti(b0s_ap, apb0, affine_ap)
+            self.save_nifti(b0s_pa, pab0, affine_pa)
 
             # Merge into one AP-PA file
             self.sp.run(f'fslmerge -t {b0im} {apb0} {pab0}', shell=True)
