@@ -1521,7 +1521,7 @@ class DwiPreprocessingClab():
             
             ivols = [0, 10] # volumes for AP and PA inside the concat b0s
             xcmp='gray'
-            for i, d in enumerate(['AP', 'PA']):
+            for j, d in enumerate(['AP', 'PA']):
                 # Plot comparisong btw pre and post topup
                 fig0, ax = plt.subplots(2, 2, subplot_kw={'xticks': [], 'yticks': []})
                 fig0.subplots_adjust(hspace=0.05, wspace=0.05)
@@ -1531,13 +1531,13 @@ class DwiPreprocessingClab():
                 d2 = round(raw.shape[2]/2)
                 
                 # Plot the noise residuals
-                ax.flat[0].imshow(raw[d0,:,:,ivols[i]].T, cmap=xcmp, interpolation='none',origin='lower')
+                ax.flat[0].imshow(raw[d0,:,:,ivols[j]].T, cmap=xcmp, interpolation='none',origin='lower')
                 ax.flat[0].set_title('Before Topup')
-                ax.flat[1].imshow(cor[d0,:,:,ivols[i]].T, cmap=xcmp, interpolation='none',origin='lower')
+                ax.flat[1].imshow(cor[d0,:,:,ivols[j]].T, cmap=xcmp, interpolation='none',origin='lower')
                 ax.flat[1].set_title('After Topup')
 
-                ax.flat[2].imshow(raw[:,:,d2,ivols[i]].T, cmap=xcmp, interpolation='none',origin='lower')
-                ax.flat[3].imshow(cor[:,:,d2,ivols[i]].T, cmap=xcmp, interpolation='none',origin='lower')
+                ax.flat[2].imshow(raw[:,:,d2,ivols[j]].T, cmap=xcmp, interpolation='none',origin='lower')
+                ax.flat[3].imshow(cor[:,:,d2,ivols[j]].T, cmap=xcmp, interpolation='none',origin='lower')
 
                 sfig0 = self.join('tmp', sub, 'imgs', 'topup', f'{sub}_topup_{d}.png')
                 fig0.savefig(sfig0)
@@ -1594,3 +1594,13 @@ class DwiPreprocessingClab():
         if self.telegram:
             self.tg(f'Topup {self.task} completed for all {len(self.subs)} subjects')
 
+    def eddy(self, skip_processed):
+        # Performs eddy correction together with topup application
+        # TODO add mode -> open mp etc. 
+        # Followed by eddy qc
+
+        # Log start
+        self.log_ok('ALL', f'Eddy correction started for {len(self.subs)} subjects')
+
+        # Loop over subjects
+        for i, sub in self.subs:
