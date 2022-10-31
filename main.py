@@ -1424,7 +1424,7 @@ class DwiPreprocessingClab():
                 print(f'Output directory does not exist, skipping subject: {sub}')
                 self.log_subjectEnd(sub, 'topup')
                 continue
-            '''
+            
             # make tmp dirs
             self.mkdir(self.join('tmp', sub))
             self.mkdir(self.join('tmp', sub, 'imgs'))
@@ -1548,7 +1548,7 @@ class DwiPreprocessingClab():
             plt.plot(movpar)
             plt.title(f'{sub} topup movpar')
             plt.savefig(self.join("tmp", sub, 'imgs', 'topup', f'{sub}_topup_movpar.png'))
-            '''
+
             # Copy results to output folder
             if self.copy:
                 # Copy results to derivatives
