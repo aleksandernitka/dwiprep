@@ -1390,7 +1390,7 @@ class DwiPreprocessingClab():
         import numpy as np
         #from fun.eta import Eta
         from dipy.core.gradients import gradient_table
-
+        
         # Runs FSL topup via subprocess
         # https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/topup
 
@@ -1424,7 +1424,7 @@ class DwiPreprocessingClab():
                 print(f'Output directory does not exist, skipping subject: {sub}')
                 self.log_subjectEnd(sub, 'topup')
                 continue
-            
+            '''
             # make tmp dirs
             self.mkdir(self.join('tmp', sub))
             self.mkdir(self.join('tmp', sub, 'imgs'))
@@ -1485,10 +1485,8 @@ class DwiPreprocessingClab():
                         ro = data['TotalReadoutTime']
                         if d == 'AP':
                             ap_ro = ro
-                            # TODO log
                         else:
                             pa_ro = ro
-                            # TODO log
                         f.close()
 
 
@@ -1550,19 +1548,24 @@ class DwiPreprocessingClab():
             plt.plot(movpar)
             plt.title(f'{sub} topup movpar')
             plt.savefig(self.join("tmp", sub, 'imgs', 'topup', f'{sub}_topup_movpar.png'))
-
+            '''
             # Copy results to output folder
             if self.copy:
                 # Copy results to derivatives
-                files = [f'{sub}_AP_gib_mppca.nii.gz', f'{sub}_PA_gib_mppca.nii.gz', \
-                f'{sub}_AP.json', f'{sub}_PA.json', f'{sub}_AP.bval', f'{sub}_AP.bvec']
+                # Files that were copied at the beggining and not touched
+                old_files = [f'{sub}_AP_gib_mppca.nii.gz', f'{sub}_PA_gib_mppca.nii.gz', f'{sub}_AP.json', f'{sub}_PA.json', f'{sub}_AP.bval', f'{sub}_AP.bvec']
+                new_files = [f for f in self.ls(self.join('tmp', sub)) if f not in old_files and self.isfile(self.join('tmp', sub, f))]
                 self.log_info(f'{sub}', f'topup: copying files to derivatives')
                 
                 try:
-                    for file in [f for f in self.ls(self.join('tmp', sub)) if f not in files and self.isfile(self.join('tmp', sub, f))]:
+                    for file in new_files:
                         self.sp.run(f'cp {self.join("tmp", sub, file)} {self.join(self.dataout, sub, file)}', shell=True)
-                        self.log_ok(f'sub', f'topup: copied {file} to {self.dataout}')
+                        self.log_ok(f'{sub}', f'topup: copied {file} to {self.dataout}')
+                    
+                    # Copy images to imgs folder
+                    self.sp.run(f'cp -r {self.join("tmp", sub, "imgs")}/* {self.join(self.dataout, sub, "imgs")}', shell=True)
                     self.log_ok(f'{sub}', f'topup: all files copied to derivatives')
+
                 except:
                     self.log_error(f'{sub}', f'topup: files not copied to derivatives')
                     print(f'{sub} files not copied to derivatives')
