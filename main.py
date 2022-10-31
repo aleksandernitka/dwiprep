@@ -1604,3 +1604,4 @@ class DwiPreprocessingClab():
 
         # Loop over subjects
         for i, sub in self.subs:
+            pass
