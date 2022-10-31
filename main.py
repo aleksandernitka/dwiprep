@@ -710,6 +710,31 @@ class DwiPreprocessingClab():
         self.log_ok(f'{sub}', f'plt_compare_4d: Made plots for {file1} and {file2}')
         return [True, f'Comparison plots created for {sub}']
 
+    def plot_nii_3d(self, nii, sub, title, out, xcmp = 'gray'):
+        
+        # Plot a 3D nifti file, all three planes
+
+        import matplotlib.pyplot as plt
+
+        # Plots a 3f nii file to png
+        fig0, ax = plt.subplots(1, 3 , figsize = (6,2), subplot_kw={'xticks': [], 'yticks': []})
+        fig0.subplots_adjust(hspace=0.05, wspace=0.05)
+        fig0.suptitle(f'{sub} {title}', fontsize=15)
+
+        niifile, __ = self.load_nifti(nii)
+        d0 = round(niifile.shape[0]/2)
+        d1 = round(niifile.shape[1]/2)
+        d2 = round(niifile.shape[2]/2)
+        
+        # Plot the noise residuals
+        ax.flat[0].imshow(niifile[d0,:,:].T, cmap=xcmp, interpolation='none',origin='lower')
+        ax.flat[1].imshow(niifile[:,d1,:].T, cmap=xcmp, interpolation='none',origin='lower')
+        ax.flat[2].imshow(niifile[:,:,d2].T, cmap=xcmp, interpolation='none',origin='lower')
+
+        sfig0 = self.join(out)
+        fig0.savefig(sfig0)
+        plt.close()
+
     ########################################
     # DWI Preprocessing ####################
     ########################################
@@ -1049,20 +1074,11 @@ class DwiPreprocessingClab():
             self.log_info(f'{sub}', f'mrtrix3_mppca: plotting noise')
             try:
                 for d in ['AP', 'PA']:
-                    fig0, ax = plt.subplots(1, 3 , figsize = (6,2), subplot_kw={'xticks': [], 'yticks': []})
-                    fig0.subplots_adjust(hspace=0.05, wspace=0.05)
-                    fig0.suptitle(f'{sub} {d} MPPCA noise', fontsize=15)
-
-                    mppca, __ = self.load_nifti(self.join("tmp", sub, "imgs", "mrtrix3_mppca", sub+f"_{d}_mppca_noise.nii.gz"))
                     
-                    # Plot the noise residuals
-                    ax.flat[0].imshow(mppca[d0,:,:].T, cmap=xcmp, interpolation='none',origin='lower')
-                    ax.flat[1].imshow(mppca[:,d1,:].T, cmap=xcmp, interpolation='none',origin='lower')
-                    ax.flat[2].imshow(mppca[:,:,d2].T, cmap=xcmp, interpolation='none',origin='lower')
+                    self.plot_nii_3d(nii=self.join('tmp', sub, sub + '_{d}_gib_mppca.nii.gz'), sub=sub,\
+                        title=f'{sub} {d} MPPCA noise', \
+                        out=self.join('tmp', sub, 'imgs', 'mrtrix3_mppca', f'{sub}_{d}_noise.png'))
 
-                    sfig0 = self.join('tmp', sub, 'imgs', 'mrtrix3_mppca', f'{sub}_{d}_noise.png')
-                    fig0.savefig(sfig0)
-                    plt.close()
             except:
                 self.log_error(f'{sub}', f'mrtrix3_mppca: error while plotting noise')
                 print(f'{sub} Error while plotting noise')
@@ -1361,14 +1377,17 @@ class DwiPreprocessingClab():
 
             self.log_subjectEnd(sub, 'dipyp2s')
         
+        # All subs done
+        self.log_ok('ALL', f'Patch2Self completed successfully for {len(self.subs)} subjects')
+
         if self.telegram:
-            self.log_ok('ALL', f'Patch2Self completed successfully for {len(self.subs)} subjects')
             self.tg(f'Patch2Self completed for all {len(self.subs)} subjects')
 
     def topup(self, skip_processed):
 
         import json
         import matplotlib.pyplot as plt
+        import numpy as np
         #from fun.eta import Eta
         from dipy.core.gradients import gradient_table
 
@@ -1408,8 +1427,8 @@ class DwiPreprocessingClab():
             
             # make tmp dirs
             self.mkdir(self.join('tmp', sub))
-            # self.mkdir(self.join('tmp', sub, 'imgs'))
-            # self.mkdir(self.join('tmp', sub, 'imgs', 'topup'))
+            self.mkdir(self.join('tmp', sub, 'imgs'))
+            self.mkdir(self.join('tmp', sub, 'imgs', 'topup'))
 
             # copy required files
             files = ['_AP_gib_mppca.nii.gz', '_PA_gib_mppca.nii.gz', '_AP.json', '_PA.json', '_AP.bval', '_AP.bvec']    
@@ -1491,6 +1510,47 @@ class DwiPreprocessingClab():
             --out={self.join("tmp", sub, f"{sub}_topup_results")} \
             --iout={self.join("tmp", sub, f"{sub}_b0_corrected.nii.gz")} -v', shell=True)
 
+            # plot topup results 
+            self.plot_nii_3d(nii=self.join('tmp', sub, sub + '_topup_results_fieldcoef.nii.gz'), sub=sub,\
+                        title=f'{sub} Topup FieldCoef', \
+                        out=self.join('tmp', sub, 'imgs', 'topup', f'{sub}_topup_fieldcoef.png'))
+            
+            # vs uncorrected b0s; volume AP and PA
+            # i = 0 and 10
+            # Load volumes
+            raw, __ = self.load_nifti(self.join('tmp', sub, sub+'_gib_mppca_b0s.nii.gz'))
+            cor, __ = self.load_nifti(self.join('tmp', sub, sub+'_b0_corrected.nii.gz'))
+            
+            ivols = [0, 10] # volumes for AP and PA inside the concat b0s
+            xcmp='gray'
+            for i, d in enumerate(['AP', 'PA']):
+                # Plot comparisong btw pre and post topup
+                fig0, ax = plt.subplots(2, 2, subplot_kw={'xticks': [], 'yticks': []})
+                fig0.subplots_adjust(hspace=0.05, wspace=0.05)
+                fig0.suptitle(f'{sub} Topup Corrected {d}', fontsize=15)
+
+                d0 = round(raw.shape[0]/2)
+                d2 = round(raw.shape[2]/2)
+                
+                # Plot the noise residuals
+                ax.flat[0].imshow(raw[d0,:,:,ivols[i]].T, cmap=xcmp, interpolation='none',origin='lower')
+                ax.flat[0].set_title('Before Topup')
+                ax.flat[1].imshow(cor[d0,:,:,ivols[i]].T, cmap=xcmp, interpolation='none',origin='lower')
+                ax.flat[1].set_title('After Topup')
+
+                ax.flat[2].imshow(raw[:,:,d2,ivols[i]].T, cmap=xcmp, interpolation='none',origin='lower')
+                ax.flat[3].imshow(cor[:,:,d2,ivols[i]].T, cmap=xcmp, interpolation='none',origin='lower')
+
+                sfig0 = self.join('tmp', sub, 'imgs', 'topup', f'{sub}_topup_{d}.png')
+                fig0.savefig(sfig0)
+                plt.close() 
+
+            # Plot movpars
+            movpar = np.loadtxt(self.join('tmp', sub, sub+'_topup_results_movpar.txt'))
+            plt.plot(movpar)
+            plt.title(f'{sub} topup movpar')
+            plt.savefig(self.join("tmp", sub, 'imgs', 'topup', f'{sub}_topup_movpar.png'))
+
             # Copy results to output folder
             if self.copy:
                 # Copy results to derivatives
@@ -1499,9 +1559,8 @@ class DwiPreprocessingClab():
                 self.log_info(f'{sub}', f'topup: copying files to derivatives')
                 
                 try:
-                    # yet again the shutil copy fails me, fallback to the cp method
                     for file in [f for f in self.ls(self.join('tmp', sub)) if f not in files and self.isfile(self.join('tmp', sub, f))]:
-                        self.sp.run(f'cp {self.join("tmp", sub, ile)} {self.join(self.dataout, sub, file)}', shell=True)
+                        self.sp.run(f'cp {self.join("tmp", sub, file)} {self.join(self.dataout, sub, file)}', shell=True)
                         self.log_ok(f'sub', f'topup: copied {file} to {self.dataout}')
                     self.log_ok(f'{sub}', f'topup: all files copied to derivatives')
                 except:
@@ -1527,8 +1586,8 @@ class DwiPreprocessingClab():
             self.log_subjectEnd(sub, 'topup')
 
         # Log end of all
+        self.log_ok('ALL', f'Topup completed successfully for {len(self.subs)} subjects')
         # telegram send info
         if self.telegram:
-            self.log_ok('ALL', f'Topup completed successfully for {len(self.subs)} subjects')
             self.tg(f'Topup {self.task} completed for all {len(self.subs)} subjects')
 
