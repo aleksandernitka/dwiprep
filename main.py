@@ -1461,20 +1461,26 @@ class DwiPreprocessingClab():
             pab0 = self.join('tmp', sub, sub+'_PA_gib_mppca_b0s.nii.gz') # single b in PA direction
             b0im = self.join('tmp', sub, sub+'_gib_mppca_b0s.nii.gz') # merged b0s AP + PA
 
-            # Load volumes
-            dwi_ap, affine_ap = self.load_nifti(apim)
-            dwi_pa, affine_pa = self.load_nifti(paim)
+            try:
+                # Load volumes
+                dwi_ap, affine_ap = self.load_nifti(apim)
+                dwi_pa, affine_pa = self.load_nifti(paim)
 
-            # Extract b0s
-            b0s_ap = dwi_ap[:,:,:,gtab.b0s_mask]
-            b0s_pa = dwi_pa[:,:,:,[True, True, True, True, False]]
+                # Extract b0s
+                b0s_ap = dwi_ap[:,:,:,gtab.b0s_mask]
+                b0s_pa = dwi_pa[:,:,:,[True, True, True, True, False]]
 
-            # Save volumes of b0s
-            self.save_nifti(apb0, b0s_ap, affine_ap)
-            self.save_nifti(pab0, b0s_pa, affine_pa)
+                # Save volumes of b0s
+                self.save_nifti(apb0, b0s_ap, affine_ap)
+                self.save_nifti(pab0, b0s_pa, affine_pa)
 
-            # Merge into one AP-PA file
-            self.sp.run(f'fslmerge -t {b0im} {apb0} {pab0}', shell=True)
+                # Merge into one AP-PA file
+                self.sp.run(f'fslmerge -t {b0im} {apb0} {pab0}', shell=True)
+            except:
+                self.log_error(f'{sub}', f'topup: Could not extract b0s')
+                print(f'{sub} Could not extract b0s')
+                self.log_subjectEnd(sub, 'topup')
+                continue
 
             try:
                 # Load sidecar jsons and read TRT
@@ -1599,9 +1605,63 @@ class DwiPreprocessingClab():
         # TODO add mode -> open mp etc. 
         # Followed by eddy qc
 
-        # Log start
-        self.log_ok('ALL', f'Eddy correction started for {len(self.subs)} subjects')
+        # Check if we have subjects to process
+        print(f'{len(self.subs)} subjects to process')
+        self.log_info('INIT', f'{len(self.subs)} subjects to process for eddy taks name: {self.task}')
 
         # Loop over subjects
-        for i, sub in self.subs:
-            pass
+        # dump the list of subjects to process to a file
+        self.log_subdump(self.subs)
+
+        # Loop over subjects
+        for i, sub in enumerate(self.subs):
+
+            # FIXME what to look for in the derivatives folder to skip subjects
+
+            if skip_processed:
+                if self.exists(self.join(self.dataout, sub, sub + '_acqparams.txt')):
+                    self.log_ok(f'{sub}', f'Subject {sub} already processed, skipping subject')
+                    print(f'{sub} {i+1} out of {len(self.subs)} - already processed, skipping')
+                    continue
+
+            print(f'{sub} {i+1} out of {len(self.subs)} - processing')
+
+            # Log start
+            self.log_subjectStart(sub, 'eddy')
+
+            if not self.exists(self.join(self.dataout, sub)):
+                self.log_warning(f'{sub}', f'topup: Output directory does not exist, skipping subject')
+                print(f'Output directory does not exist, skipping subject: {sub}')
+                self.log_subjectEnd(sub, 'eddy')
+                continue
+            
+            # make tmp dirs
+            self.mkdir(self.join('tmp', sub))
+            self.mkdir(self.join('tmp', sub, 'imgs'))
+            self.mkdir(self.join('tmp', sub, 'imgs', 'eddy'))
+
+            # Copy files to tmp
+            self.log_info(f'{sub}', f'eddy: copying files to tmp')
+            files = [\ 
+            f'{}_AP_gib_mppca.nii.gz', \
+            f'{}_PA_gib_mppca.nii.gz', \
+            f'{}_gib_mppca_b0s.nii.gz', \
+            f'{}_AP.json', \
+            f'{}_PA.json', \
+            f'{}_AP.bval', \
+            f'{}_AP.bvec' \
+            f'{}_topup_results_movpar.txt', \
+            f'{}_topup_results_fieldcoef.nii.gz', \
+            f'{}_acqparams.txt']
+
+            # Make brainmask
+            # create a mean b0 image
+            # self.sp.run(f'fslmaths {self.join("tmp", sub, sub+"_gib_mppca_b0s.nii.gz")} -Tmean {self.join("tmp", sub, sub+"_gib_mppca_b0s_mean.nii.gz")}', shell=True)
+
+            # create a brainmask with synthstrip
+            # mri_synthstrip -i input -o stripped -m mask
+
+            # Make index
+
+            # eddy_openmp --imain=data --mask=my_hifi_b0_brain_mask --acqp=acqparams.txt --index=index.txt --bvecs=bvecs --bvals=bvals --topup=my_topup_results --repol --out=eddy_corrected_data --verbose
+            
