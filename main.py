@@ -1383,16 +1383,22 @@ class DwiPreprocessingClab():
         if self.telegram:
             self.tg(f'Patch2Self completed for all {len(self.subs)} subjects')
 
-    def topup(self, skip_processed):
+    def topup(self, skip_processed, wait=0):
 
         import json
         import matplotlib.pyplot as plt
         import numpy as np
+        import time
         #from fun.eta import Eta
         from dipy.core.gradients import gradient_table
         
         # Runs FSL topup via subprocess
         # https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/topup
+        
+        if wait != 0:
+            print(f'Waiting {wait} minutes before starting topup')
+            self.log_info('ALL', f'Waiting {wait} minutes before starting topup')
+            time.sleep(wait*60)
 
         # Check if we have subjects to process
         print(f'{len(self.subs)} subjects to process')
