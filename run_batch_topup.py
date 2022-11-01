@@ -6,10 +6,10 @@ Wrapper for running topup in multiple batches. Each batch runs on a separate thr
 """
 
 args = argparse.ArgumentParser()
-args.add_argument('input', type=str, required=True, help='Input CSV file')
-args.add_argument('taks', type=str, required=True, help='Task name')
+args.add_argument('input', type=str, help='Input CSV file')
+args.add_argument('task', type=str, help='Task name')
 args.add_argument('-w', '--wait', type=int, default=0, help='Wait time')
-args = argparse.parse_args()
+args = args.parse_args()
 
 p = DwiPreprocessingClab(task=args.task, mode='l',\
     input=args.input, \

@@ -1519,7 +1519,6 @@ class DwiPreprocessingClab():
             self.sp.run(f'topup --imain={b0im} --datain={acqpar} --config=b02b0.cnf \
             --out={self.join("tmp", sub, f"{sub}_topup_results")} \
             --iout={self.join("tmp", sub, f"{sub}_b0_corrected.nii.gz")} -v', shell=True)
-
             # plot topup results 
             self.plot_nii_3d(nii=self.join('tmp', sub, sub + '_topup_results_fieldcoef.nii.gz'), sub=sub,\
                         title=f'{sub} Topup FieldCoef', \
