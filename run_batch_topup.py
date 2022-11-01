@@ -1,6 +1,10 @@
 import argparse
 from main import DwiPreprocessingClab
 
+"""
+Wrapper for running topup in multiple batches. Each batch runs on a separate thread
+"""
+
 args = argparse.ArgumentParser()
 args.add_argument('input', type=str, required=True, help='Input CSV file')
 args.add_argument('taks', type=str, required=True, help='Task name')
