@@ -1642,17 +1642,16 @@ class DwiPreprocessingClab():
 
             # Copy files to tmp
             self.log_info(f'{sub}', f'eddy: copying files to tmp')
-            files = [\ 
-            f'{}_AP_gib_mppca.nii.gz', \
-            f'{}_PA_gib_mppca.nii.gz', \
-            f'{}_gib_mppca_b0s.nii.gz', \
-            f'{}_AP.json', \
-            f'{}_PA.json', \
-            f'{}_AP.bval', \
-            f'{}_AP.bvec' \
-            f'{}_topup_results_movpar.txt', \
-            f'{}_topup_results_fieldcoef.nii.gz', \
-            f'{}_acqparams.txt']
+            files = [f'{sub}_AP_gib_mppca.nii.gz', \
+            f'{sub}_PA_gib_mppca.nii.gz', \
+            f'{sub}_gib_mppca_b0s.nii.gz', \
+            f'{sub}_AP.json', \
+            f'{sub}_PA.json', \
+            f'{sub}_AP.bval', \
+            f'{sub}_AP.bvec' \
+            f'{sub}_topup_results_movpar.txt', \
+            f'{sub}_topup_results_fieldcoef.nii.gz', \
+            f'{sub}_acqparams.txt']
 
             # Make brainmask
             # create a mean b0 image
