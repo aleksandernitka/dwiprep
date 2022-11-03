@@ -1505,9 +1505,9 @@ class DwiPreprocessingClab():
                 with open(acqpar, "w") as f:
                     # for each vol in AP and for each vol in PA
                     for v in range(0, b0s_ap.shape[3]):
-                        f.write(f"0 1 0 {ap_ro}\n")
+                        f.write(f"0 -1 0 {ap_ro}\n")
                     for v in range(0, b0s_pa.shape[3]):
-                        f.write(f"0 -1 0 {pa_ro}\n")
+                        f.write(f"0 1 0 {pa_ro}\n")
                     f.close()
             except:
                 self.log_error(f'{sub}', f'topup: Could not create acqparams.txt file')
