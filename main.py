@@ -719,7 +719,7 @@ class DwiPreprocessingClab():
         # Plots a 3f nii file to png
         fig0, ax = plt.subplots(1, 3 , figsize = (6,2), subplot_kw={'xticks': [], 'yticks': []})
         fig0.subplots_adjust(hspace=0.05, wspace=0.05)
-        fig0.suptitle(f'{sub} {title}', fontsize=15)
+        fig0.suptitle(f'{title}', fontsize=15)
 
         niifile, __ = self.load_nifti(nii)
         d0 = round(niifile.shape[0]/2)
