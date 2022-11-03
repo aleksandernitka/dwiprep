@@ -1559,6 +1559,7 @@ class DwiPreprocessingClab():
             plt.plot(movpar)
             plt.title(f'{sub} topup movpar')
             plt.savefig(self.join("tmp", sub, 'imgs', 'topup', f'{sub}_topup_movpar.png'))
+            plt.close()
 
             # Copy results to output folder
             if self.copy:
