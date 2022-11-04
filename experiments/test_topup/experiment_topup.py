@@ -71,25 +71,25 @@ class topupExperiment():
         # Output files, extracted b0s for oneb0 condition
         ap_raw_oneb0 = join("data", self.sub, 'oneb0_raw', self.sub+"_AP_raw_oneb0.nii.gz")
         pa_raw_oneb0 = join("data", self.sub, 'oneb0_raw', self.sub+"_PA_raw_oneb0.nii.gz")
-        ap_gib_oneb0 = join("data", self.sub, 'oneb0_gibbs', self.sub+"_AP_gib_oneb0.nii.gz")
-        pa_gib_oneb0 = join("data", self.sub, 'oneb0_gibbs', self.sub+"_PA_gib_oneb0.nii.gz")
+        ap_gib_oneb0 = join("data", self.sub, 'oneb0_gibbs', self.sub+"_AP_gibbs_oneb0.nii.gz")
+        pa_gib_oneb0 = join("data", self.sub, 'oneb0_gibbs', self.sub+"_PA_gibbs_oneb0.nii.gz")
         ap_mppca_oneb0 = join("data", self.sub, 'oneb0_mppca', self.sub+"_AP_mppca_oneb0.nii.gz")
         pa_mppca_oneb0 = join("data", self.sub, 'oneb0_mppca', self.sub+"_PA_mppca_oneb0.nii.gz")
 
         # Output files, extracted b0s for allb0 condition
         ap_raw_allb0 = join("data", self.sub, 'allb0_raw', self.sub+"_AP_raw_allb0.nii.gz")
         pa_raw_allb0 = join("data", self.sub, 'allb0_raw', self.sub+"_PA_raw_allb0.nii.gz")
-        ap_gib_allb0 = join("data", self.sub, 'allb0_gibbs', self.sub+"_AP_gib_allb0.nii.gz")
-        pa_gib_allb0 = join("data", self.sub, 'allb0_gibbs', self.sub+"_PA_gib_allb0.nii.gz")
+        ap_gib_allb0 = join("data", self.sub, 'allb0_gibbs', self.sub+"_AP_gibbs_allb0.nii.gz")
+        pa_gib_allb0 = join("data", self.sub, 'allb0_gibbs', self.sub+"_PA_gibbbs_allb0.nii.gz")
         ap_mppca_allb0 = join("data", self.sub, 'allb0_mppca', self.sub+"_AP_mppca_allb0.nii.gz")
         pa_mppca_allb0 = join("data", self.sub, 'allb0_mppca', self.sub+"_PA_mppca_allb0.nii.gz")
 
         # Merged AP-PA for topup
         appa_raw_oneb0 = join("data", self.sub, 'oneb0_raw', self.sub+"_AP-PA_raw_oneb0.nii.gz")
-        appa_gib_oneb0 = join("data", self.sub, 'oneb0_gibbs', self.sub+"_AP-PA_gib_oneb0.nii.gz")
+        appa_gib_oneb0 = join("data", self.sub, 'oneb0_gibbs', self.sub+"_AP-PA_gibbs_oneb0.nii.gz")
         appa_mppca_oneb0 = join("data", self.sub, 'oneb0_mppca', self.sub+"_AP-PA_mppca_oneb0.nii.gz")
         appa_raw_allb0 = join("data", self.sub, 'allb0_raw', self.sub+"_AP-PA_raw_allb0.nii.gz")
-        appa_gib_allb0 = join("data", self.sub, 'allb0_gibbs', self.sub+"_AP-PA_gib_allb0.nii.gz")
+        appa_gib_allb0 = join("data", self.sub, 'allb0_gibbs', self.sub+"_AP-PA_gibbs_allb0.nii.gz")
         appa_mppca_allb0 = join("data", self.sub, 'allb0_mppca', self.sub+"_AP-PA_mppca_allb0.nii.gz")
 
         # Extract the b0s SINGLE b0 in each direction
