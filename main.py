@@ -563,23 +563,24 @@ class DwiPreprocessingClab():
         import matplotlib.pyplot as plt
         import matplotlib.colors as colors
         
-        if not self.exists(self.join('tmp', sub)):
-            self.mkdir(self.join('tmp', sub))
+        try:
             self.mkdir(self.join('tmp', sub, 'bmasks'))
-            self.mkdir(self.join('tmp', sub, 'imgs'))
             self.mkdir(self.join('tmp', sub, 'imgs', 'bmask'))
-
-        else:
-            # TODO add error logging
-            exit('tmp dir already exists')
-
+        except:
+            self.log_error(f'{sub}', f'Could not create tmp dirs for subject')
+            return False
+        
         # Copy file to the tmpdir
         raw_img = self.join('tmp', sub, f'{sub}_b0_corrected.nii.gz')
         img = self.join('tmp', sub, f'{sub}_b0_.nii.gz')
         mask_otsu = self.join('tmp', sub, 'bmasks', f'{sub}_b0_otsu')
 
-        # extract 1st b0
-        self.sp.run(f'fslroi {raw_img} {img} 0 1', shell=True)
+        if self.exists(raw_img):
+            # extract 1st b0
+            self.sp.run(f'fslroi {raw_img} {img} 0 1', shell=True)
+        else:
+            self.log_error(f'{sub}', 'BrainMask: Could not extract b0 for subject')
+            return False
 
         # run bet
         # Make outline (-o), mask (-m) and mesh (-e) with robust (-R) flag, 
@@ -596,45 +597,48 @@ class DwiPreprocessingClab():
 
         # plot all masks
         print('Plotting masks - loading volumes')
-        b0,__ = self.load_nifti(img)
-        m02,__ = self.load_nifti(self.join('tmp', sub, 'bmasks', f'{sub}_b0_bet_f-02_mask.nii.gz'))
-        mmo,__ = self.load_nifti(self.join('tmp', sub, 'bmasks', f'{sub}_b0_otsu.nii.gz'))
+        try:
+            b0,__ = self.load_nifti(img)
+            m02,__ = self.load_nifti(self.join('tmp', sub, 'bmasks', f'{sub}_b0_bet_f-02_mask.nii.gz'))
+            mmo,__ = self.load_nifti(self.join('tmp', sub, 'bmasks', f'{sub}_b0_otsu.nii.gz'))
+        except:
+            self.log_error(f'{sub}', 'BrainMark: Could not load masks for subject')
+            return False
 
         print('Plotting masks - plotting')
         # Plot comparisong btw pre and post topup
-        fig0, ax = plt.subplots(1, 3, subplot_kw={'xticks': [], 'yticks': []})
-        fig0.subplots_adjust(hspace=0.05, wspace=0.05)
-        fig0.suptitle(f'{sub} b0 masks', fontsize=11)
-        # alpha for brain mask
-        al = 0.3
-        sl = [30,50,40]
-        # Plot the noise residuals
-        ax.flat[0].imshow(b0[sl[0],:,:].T, cmap='gray', interpolation='none',origin='lower')
-        ax.flat[0].imshow(m02[sl[0],:,:].T, interpolation='none',origin='lower', alpha=al, cmap = colors.ListedColormap(['black', 'red']))
-        ax.flat[0].imshow(mmo[sl[0],:,:].T, interpolation='none',origin='lower', alpha=al, cmap = colors.ListedColormap(['black', 'green']))
+        try:
+            fig0, ax = plt.subplots(1, 3, subplot_kw={'xticks': [], 'yticks': []})
+            fig0.subplots_adjust(hspace=0.05, wspace=0.05)
+            fig0.suptitle(f'{sub} b0 masks', fontsize=11)
+            # alpha for brain mask
+            al = 0.3
+            sl = [30,50,40]
+            # Plot the noise residuals
+            ax.flat[0].imshow(b0[sl[0],:,:].T, cmap='gray', interpolation='none',origin='lower')
+            ax.flat[0].imshow(m02[sl[0],:,:].T, interpolation='none',origin='lower', alpha=al, cmap = colors.ListedColormap(['black', 'red']))
+            ax.flat[0].imshow(mmo[sl[0],:,:].T, interpolation='none',origin='lower', alpha=al, cmap = colors.ListedColormap(['black', 'green']))
 
-        ax.flat[1].imshow(b0[:,sl[1],:].T, cmap='gray', interpolation='none',origin='lower')
-        ax.flat[1].imshow(m02[:,sl[1],:].T, interpolation='none',origin='lower', alpha=al, cmap = colors.ListedColormap(['black', 'red']))
-        ax.flat[1].imshow(mmo[:,sl[1],:].T, interpolation='none',origin='lower', alpha=al, cmap = colors.ListedColormap(['black', 'green']))
+            ax.flat[1].imshow(b0[:,sl[1],:].T, cmap='gray', interpolation='none',origin='lower')
+            ax.flat[1].imshow(m02[:,sl[1],:].T, interpolation='none',origin='lower', alpha=al, cmap = colors.ListedColormap(['black', 'red']))
+            ax.flat[1].imshow(mmo[:,sl[1],:].T, interpolation='none',origin='lower', alpha=al, cmap = colors.ListedColormap(['black', 'green']))
 
-        ax.flat[2].imshow(b0[:,:,sl[2]].T, cmap='gray', interpolation='none',origin='lower')
-        ax.flat[2].imshow(m02[:,:,sl[2]].T, interpolation='none',origin='lower', alpha=al, cmap = colors.ListedColormap(['black', 'red']))
-        ax.flat[2].imshow(mmo[:,:,sl[2]].T, interpolation='none',origin='lower', alpha=al, cmap = colors.ListedColormap(['black', 'green'])) 
+            ax.flat[2].imshow(b0[:,:,sl[2]].T, cmap='gray', interpolation='none',origin='lower')
+            ax.flat[2].imshow(m02[:,:,sl[2]].T, interpolation='none',origin='lower', alpha=al, cmap = colors.ListedColormap(['black', 'red']))
+            ax.flat[2].imshow(mmo[:,:,sl[2]].T, interpolation='none',origin='lower', alpha=al, cmap = colors.ListedColormap(['black', 'green'])) 
 
 
-        sfig0 = self.join('tmp', sub, 'imgs', 'bmasks', f'{sub}_mask.png')
-        fig0.savefig(sfig0)
-        plt.close() 
+            sfig0 = self.join('tmp', sub, 'imgs', 'bmasks', f'{sub}_mask.png')
+            fig0.savefig(sfig0)
+            plt.close()
+        except:
+            self.log_error(f'{sub}', 'BrainMask: Could not plot masks for subject')
+            return False
 
         # TODO: maybe later, run synthseg and syntstrip on the b0 image if freesurfer is available
 
-        if self.copy:
-            # Copy the masks directory to the output directory, rest can be discarded
-            self.sp.run(f'cp -r {self.join("tmp", sub, "bmasks")} {self.join(self.outdir, sub)}', shell=True)
-
-        # TODO: add logging
+        self.log_ok(f'{sub}', 'Brain masks created for subject')
         return [True, 'Brain masks created']
-        
 
     ########################################
     # Plotting methods #####################
@@ -1740,11 +1744,7 @@ class DwiPreprocessingClab():
             f'{sub}_acqparams.txt']
 
             # Make brainmask
-            # create a mean b0 image
-            # self.sp.run(f'fslmaths {self.join("tmp", sub, sub+"_gib_mppca_b0s.nii.gz")} -Tmean {self.join("tmp", sub, sub+"_gib_mppca_b0s_mean.nii.gz")}', shell=True)
-
-            # create a brainmask with synthstrip
-            # mri_synthstrip -i input -o stripped -m mask
+            self.make_brain_masks(sub)
 
             # Make index
 
