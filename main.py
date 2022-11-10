@@ -567,7 +567,7 @@ class DwiPreprocessingClab():
             self.mkdir(self.join('tmp', sub, 'bmasks'))
             self.mkdir(self.join('tmp', sub, 'imgs', 'bmask'))
         except:
-            self.log_error(f'{sub}', f'Could not create tmp dirs for subject')
+            # self.log_error(f'{sub}', f'Could not create tmp dirs for subject')
             return False
         
         # Copy file to the tmpdir
@@ -577,9 +577,11 @@ class DwiPreprocessingClab():
 
         if self.exists(raw_img):
             # extract 1st b0
-            self.sp.run(f'fslroi {raw_img} {img} 0 1', shell=True)
+            # self.sp.run(f'fslroi {raw_img} {img} 0 1', shell=True)
+            # get average image from all corrected
+            self.sp.run(f'fslmaths {raw_img} -Tmean {img}', shell=True)
         else:
-            self.log_error(f'{sub}', 'BrainMask: Could not extract b0 for subject')
+            # self.log_error(f'{sub}', 'BrainMask: Could not extract b0 for subject')
             return False
 
         # run bet
@@ -602,7 +604,7 @@ class DwiPreprocessingClab():
             m02,__ = self.load_nifti(self.join('tmp', sub, 'bmasks', f'{sub}_b0_bet_f-02_mask.nii.gz'))
             mmo,__ = self.load_nifti(self.join('tmp', sub, 'bmasks', f'{sub}_b0_otsu.nii.gz'))
         except:
-            self.log_error(f'{sub}', 'BrainMark: Could not load masks for subject')
+            # self.log_error(f'{sub}', 'BrainMark: Could not load masks for subject')
             return False
 
         print('Plotting masks - plotting')
@@ -632,12 +634,12 @@ class DwiPreprocessingClab():
             fig0.savefig(sfig0)
             plt.close()
         except:
-            self.log_error(f'{sub}', 'BrainMask: Could not plot masks for subject')
+            # self.log_error(f'{sub}', 'BrainMask: Could not plot masks for subject')
             return False
 
         # TODO: maybe later, run synthseg and syntstrip on the b0 image if freesurfer is available
 
-        self.log_ok(f'{sub}', 'Brain masks created for subject')
+        # self.log_ok(f'{sub}', 'Brain masks created for subject')
         return [True, 'Brain masks created']
 
     ########################################
@@ -1692,16 +1694,15 @@ class DwiPreprocessingClab():
 
     def eddy(self, skip_processed):
         # Performs eddy correction together with topup application
-        # TODO add mode -> open mp etc. 
         # Followed by eddy qc
 
         # Check if we have subjects to process
         print(f'{len(self.subs)} subjects to process')
-        self.log_info('INIT', f'{len(self.subs)} subjects to process for eddy taks name: {self.task}')
+        # self.log_info('INIT', f'{len(self.subs)} subjects to process for eddy taks name: {self.task}')
 
         # Loop over subjects
         # dump the list of subjects to process to a file
-        self.log_subdump(self.subs)
+        # self.log_subdump(self.subs)
 
         # Loop over subjects
         for i, sub in enumerate(self.subs):
@@ -1709,15 +1710,15 @@ class DwiPreprocessingClab():
             # FIXME what to look for in the derivatives folder to skip subjects
 
             if skip_processed:
-                if self.exists(self.join(self.dataout, sub, sub + '_acqparams.txt')):
-                    self.log_ok(f'{sub}', f'Subject {sub} already processed, skipping subject')
+                if self.exists(self.join(self.dataout, sub, sub + '_index.txt')):
+                    # self.log_ok(f'{sub}', f'Subject {sub} already processed, skipping subject')
                     print(f'{sub} {i+1} out of {len(self.subs)} - already processed, skipping')
                     continue
 
             print(f'{sub} {i+1} out of {len(self.subs)} - processing')
 
             # Log start
-            self.log_subjectStart(sub, 'eddy')
+            # self.log_subjectStart(sub, 'eddy')
 
             if not self.exists(self.join(self.dataout, sub)):
                 self.log_warning(f'{sub}', f'topup: Output directory does not exist, skipping subject')
@@ -1731,7 +1732,8 @@ class DwiPreprocessingClab():
             self.mkdir(self.join('tmp', sub, 'imgs', 'eddy'))
 
             # Copy files to tmp
-            self.log_info(f'{sub}', f'eddy: copying files to tmp')
+            # self.log_info(f'{sub}', f'eddy: copying files to tmp')
+            '''
             files = [f'{sub}_AP_gib_mppca.nii.gz', \
             f'{sub}_PA_gib_mppca.nii.gz', \
             f'{sub}_gib_mppca_b0s.nii.gz', \
@@ -1741,8 +1743,14 @@ class DwiPreprocessingClab():
             f'{sub}_AP.bvec' \
             f'{sub}_topup_results_movpar.txt', \
             f'{sub}_topup_results_fieldcoef.nii.gz', \
-            f'{sub}_acqparams.txt']
-
+            f'{sub}_acqparams.txt',\
+            f'{sub}_b0_corrected.nii.gz']
+            '''
+            files = [f'{sub}_b0_corrected.nii.gz']
+            
+            for file in files:
+                self.sp.run(f'cp {self.join(self.datain, sub, file)} {self.join("tmp", sub, file)}', shell=True)
+            
             # Make brainmask
             self.make_brain_masks(sub)
 
