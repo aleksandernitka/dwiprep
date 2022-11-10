@@ -604,11 +604,10 @@ class DwiPreprocessingClab():
             m02,__ = self.load_nifti(self.join('tmp', sub, 'bmasks', f'{sub}_b0_bet_f-02_mask.nii.gz'))
             mmo,__ = self.load_nifti(self.join('tmp', sub, 'bmasks', f'{sub}_b0_otsu.nii.gz'))
         except:
-            print('Could not load volumes for plotting')
+            # print('Could not load volumes for plotting')
             # self.log_error(f'{sub}', 'BrainMark: Could not load masks for subject')
             return False
 
-        print('Plotting masks - plotting')
         # Plot comparisong btw pre and post topup
         try:
             fig0, ax = plt.subplots(1, 3, subplot_kw={'xticks': [], 'yticks': []})
@@ -630,16 +629,12 @@ class DwiPreprocessingClab():
             ax.flat[2].imshow(m02[:,:,sl[2]].T, interpolation='none',origin='lower', alpha=al, cmap = colors.ListedColormap(['black', 'red']))
             ax.flat[2].imshow(mmo[:,:,sl[2]].T, interpolation='none',origin='lower', alpha=al, cmap = colors.ListedColormap(['black', 'green'])) 
 
-
-            sfig0 = self.join('tmp', sub, 'imgs', 'bmasks', f'{sub}_mask.png')
-            fig0.savefig(sfig0)
+            fig0.savefig(self.join('tmp', sub, 'imgs', 'bmask', f'{sub}_bmasks.png'))
             plt.close()
         except:
             print('Could not plot masks')
             # self.log_error(f'{sub}', 'BrainMask: Could not plot masks for subject')
             return False
-
-        # TODO: maybe later, run synthseg and syntstrip on the b0 image if freesurfer is available
 
         # self.log_ok(f'{sub}', 'Brain masks created for subject')
         return [True, 'Brain masks created']
