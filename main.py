@@ -604,6 +604,7 @@ class DwiPreprocessingClab():
             m02,__ = self.load_nifti(self.join('tmp', sub, 'bmasks', f'{sub}_b0_bet_f-02_mask.nii.gz'))
             mmo,__ = self.load_nifti(self.join('tmp', sub, 'bmasks', f'{sub}_b0_otsu.nii.gz'))
         except:
+            print('Could not load volumes for plotting')
             # self.log_error(f'{sub}', 'BrainMark: Could not load masks for subject')
             return False
 
@@ -634,6 +635,7 @@ class DwiPreprocessingClab():
             fig0.savefig(sfig0)
             plt.close()
         except:
+            print('Could not plot masks')
             # self.log_error(f'{sub}', 'BrainMask: Could not plot masks for subject')
             return False
 
