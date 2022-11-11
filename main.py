@@ -1735,7 +1735,7 @@ class DwiPreprocessingClab():
             f'{sub}_AP.json', \
             f'{sub}_PA.json', \
             f'{sub}_AP.bval', \
-            f'{sub}_AP.bvec' \
+            f'{sub}_AP.bvec', \
             f'{sub}_topup_results_movpar.txt', \
             f'{sub}_topup_results_fieldcoef.nii.gz', \
             f'{sub}_acqparams.txt',\
