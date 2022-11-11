@@ -1695,27 +1695,25 @@ class DwiPreprocessingClab():
 
         # Check if we have subjects to process
         print(f'{len(self.subs)} subjects to process')
-        # self.log_info('INIT', f'{len(self.subs)} subjects to process for eddy taks name: {self.task}')
+        self.log_info('INIT', f'{len(self.subs)} subjects to process for eddy taks name: {self.task}')
 
         # Loop over subjects
         # dump the list of subjects to process to a file
-        # self.log_subdump(self.subs)
+        self.log_subdump(self.subs)
 
         # Loop over subjects
         for i, sub in enumerate(self.subs):
 
-            # FIXME what to look for in the derivatives folder to skip subjects
-
             if skip_processed:
-                if self.exists(self.join(self.dataout, sub, sub + '_index.txt')):
-                    # self.log_ok(f'{sub}', f'Subject {sub} already processed, skipping subject')
+                if self.exists(self.join(self.dataout, sub,  f'{sub}_index.txt')):
+                    self.log_ok(f'{sub}', f'Subject {sub} already processed, skipping subject')
                     print(f'{sub} {i+1} out of {len(self.subs)} - already processed, skipping')
                     continue
 
             print(f'{sub} {i+1} out of {len(self.subs)} - processing')
 
             # Log start
-            # self.log_subjectStart(sub, 'eddy')
+            self.log_subjectStart(sub, 'eddy')
 
             if not self.exists(self.join(self.dataout, sub)):
                 self.log_warning(f'{sub}', f'topup: Output directory does not exist, skipping subject')
@@ -1726,11 +1724,11 @@ class DwiPreprocessingClab():
             # make tmp dirs
             self.mkdir(self.join('tmp', sub))
             self.mkdir(self.join('tmp', sub, 'imgs'))
-            self.mkdir(self.join('tmp', sub, 'imgs', 'eddy'))
 
             # Copy files to tmp
-            # self.log_info(f'{sub}', f'eddy: copying files to tmp')
-            '''
+            
+            self.log_info(f'{sub}', f'eddy: copying files to tmp')
+            
             files = [f'{sub}_AP_gib_mppca.nii.gz', \
             f'{sub}_PA_gib_mppca.nii.gz', \
             f'{sub}_gib_mppca_b0s.nii.gz', \
@@ -1742,8 +1740,7 @@ class DwiPreprocessingClab():
             f'{sub}_topup_results_fieldcoef.nii.gz', \
             f'{sub}_acqparams.txt',\
             f'{sub}_b0_corrected.nii.gz']
-            '''
-            files = [f'{sub}_b0_corrected.nii.gz']
+            
             
             for file in files:
                 self.sp.run(f'cp {self.join(self.datain, sub, file)} {self.join("tmp", sub, file)}', shell=True)
@@ -1752,6 +1749,28 @@ class DwiPreprocessingClab():
             self.make_brain_masks(sub)
 
             # Make index
-
+            img, __ = self.load_nifti(self.join('tmp', sub, f'{sub}_AP_gib_mppca.nii.gz'))
+            with open(self.join('tmp', sub, f'{sub}_index.txt'), 'w') as f:
+                for i in range(img.shape[3]):
+                    # FIXME: check if this is correct
+                    f.write(f'1\n')
+            
+            bmask = self.join('tmp', sub, 'bmasks', f'{sub}_b0_bet_f-02_mask.nii.gz')
+            mdata = self.join('tmp', sub, f'{sub}_AP_gib_mppca.nii.gz')
+            index = self.join('tmp', sub, f'{sub}_index.txt')
+            acqpr = self.join('tmp', sub, f'{sub}_acqparams.txt')
+            bvals = self.join('tmp', sub, f'{sub}_AP.bval')
+            bvecs = self.join('tmp', sub, f'{sub}_AP.bvec')
+            eddyo = self.join('tmp', sub, f'{sub}_eddy')
+            tpout = self.join('tmp', sub, f'{sub}_topup_results')
+            qcout = self.join('tmp', sub, f'{sub}_eddy_qc')
+            
+            # Run Eddy correction
             # eddy_openmp --imain=data --mask=my_hifi_b0_brain_mask --acqp=acqparams.txt --index=index.txt --bvecs=bvecs --bvals=bvals --topup=my_topup_results --repol --out=eddy_corrected_data --verbose
+            self.sp.run(f'eddy_openmp --imain={mdata} --mask={bmask} --acqp={acqpr} --index={index} --bvecs={bvecs} --bvals={bvals} \
+                --topup={tpout} --repol --out={eddyo} --verbose --cnr_maps', shell=True)
+
+            # Run eddy QC
+            # eddy_quad <eddy_output_basename> -idx <eddy_index_file> -par <eddy_acqparams_file> -m <nodif_mask> -b <bvals>
+            self.sp.run(f'eddy_quad {eddyo} -idx {index} -par {acqpr} -m {bmask} -b {bvals} -o {qcout}', shell=True)
             
