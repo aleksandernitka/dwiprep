@@ -1777,7 +1777,7 @@ class DwiPreprocessingClab():
             # Run Eddy correction
             # eddy_openmp --imain=data --mask=my_hifi_b0_brain_mask --acqp=acqparams.txt --index=index.txt --bvecs=bvecs --bvals=bvals --topup=my_topup_results --repol --out=eddy_corrected_data --verbose
             self.sp.run(f'eddy_openmp --imain={mdata} --mask={bmask} --acqp={acqpr} --index={index} --bvecs={bvecs} --bvals={bvals} \
-                --topup={tpout} --repol --out={eddyo} --verbose --cnr_maps', shell=True)
+                --topup={tpout} --repol --out={eddyo} --verbose --cnr_maps --fwhm=0 --flm=quadratic', shell=True)
 
             # Run eddy QC
             # eddy_quad <eddy_output_basename> -idx <eddy_index_file> -par <eddy_acqparams_file> -m <nodif_mask> -b <bvals>
