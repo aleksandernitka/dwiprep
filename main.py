@@ -1758,11 +1758,17 @@ class DwiPreprocessingClab():
             self.make_brain_masks(sub)
 
             # Make index
-            img, __ = self.load_nifti(self.join('tmp', sub, f'{sub}_AP_gib_mppca.nii.gz'))
-            with open(self.join('tmp', sub, f'{sub}_index.txt'), 'w') as f:
-                for i in range(img.shape[3]):
-                    f.write(f'1\n')
-            
+            try: 
+                img, __ = self.load_nifti(self.join('tmp', sub, f'{sub}_AP_gib_mppca.nii.gz'))
+                with open(self.join('tmp', sub, f'{sub}_index.txt'), 'w') as f:
+                    for i in range(img.shape[3]):
+                        f.write(f'1\n')
+            except:
+                self.log_error(f'{sub}', f'eddy: index file not created')
+                print(f'{sub} index file not created')
+                self.log_subjectEnd(sub, 'eddy')
+                continue    
+
             bmask = self.join('tmp', sub, 'bmasks', f'{sub}_b0_bet_f-02_mask.nii.gz')
             mdata = self.join('tmp', sub, f'{sub}_AP_gib_mppca.nii.gz')
             index = self.join('tmp', sub, f'{sub}_index.txt')
@@ -1810,4 +1816,9 @@ class DwiPreprocessingClab():
             print(f"{sub} eddy duration {(t1 - t0)/60:0.4f} minutes")
             # Log end
             self.log_subjectEnd(sub, 'eddy, duration: ' + str((t1 - t0)/60))
+        
+        # send telegram message
+        print(f'{self.task}: eddy finished')
+        if self.telegram:
+            self.tg(f'{self.task}: eddy finished')
             
