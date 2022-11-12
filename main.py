@@ -1769,7 +1769,7 @@ class DwiPreprocessingClab():
             acqpr = self.join('tmp', sub, f'{sub}_acqparams.txt')
             bvals = self.join('tmp', sub, f'{sub}_AP.bval')
             bvecs = self.join('tmp', sub, f'{sub}_AP.bvec')
-            eddyo = self.join('tmp', sub, f'{sub}_gib_mppca_eddy')
+            eddyo = self.join('tmp', sub, f'{sub}_dwi')
             tpout = self.join('tmp', sub, f'{sub}_topup_results')
             qcout = self.join('tmp', sub, f'{sub}_eddy_qc')
             
