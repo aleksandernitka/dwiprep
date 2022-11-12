@@ -1693,6 +1693,8 @@ class DwiPreprocessingClab():
         # Performs eddy correction together with topup application
         # Followed by eddy qc
 
+        from time import perf_counter
+
         # Check if we have subjects to process
         print(f'{len(self.subs)} subjects to process')
         self.log_info('INIT', f'{len(self.subs)} subjects to process for eddy taks name: {self.task}')
@@ -1714,6 +1716,8 @@ class DwiPreprocessingClab():
 
             # Log start
             self.log_subjectStart(sub, 'eddy')
+            # Start timer
+            t0 = perf_counter()
 
             if not self.exists(self.join(self.dataout, sub)):
                 self.log_warning(f'{sub}', f'topup: Output directory does not exist, skipping subject')
@@ -1722,8 +1726,14 @@ class DwiPreprocessingClab():
                 continue
             
             # make tmp dirs
-            self.mkdir(self.join('tmp', sub))
-            self.mkdir(self.join('tmp', sub, 'imgs'))
+            try:
+                self.mkdir(self.join('tmp', sub))
+                self.mkdir(self.join('tmp', sub, 'imgs'))
+            except:
+                self.log_error(f'{sub}', f'eddy: tmp folder not created')
+                print(f'{sub} tmp folder not created')
+                self.log_subjectEnd(sub, 'eddy')
+                continue
 
             # Copy files to tmp
             
@@ -1740,7 +1750,6 @@ class DwiPreprocessingClab():
             f'{sub}_topup_results_fieldcoef.nii.gz', \
             f'{sub}_acqparams.txt',\
             f'{sub}_b0_corrected.nii.gz']
-            
             
             for file in files:
                 self.sp.run(f'cp {self.join(self.datain, sub, file)} {self.join("tmp", sub, file)}', shell=True)
@@ -1761,7 +1770,7 @@ class DwiPreprocessingClab():
             acqpr = self.join('tmp', sub, f'{sub}_acqparams.txt')
             bvals = self.join('tmp', sub, f'{sub}_AP.bval')
             bvecs = self.join('tmp', sub, f'{sub}_AP.bvec')
-            eddyo = self.join('tmp', sub, f'{sub}_eddy')
+            eddyo = self.join('tmp', sub, f'{sub}_gib_mppca_eddy')
             tpout = self.join('tmp', sub, f'{sub}_topup_results')
             qcout = self.join('tmp', sub, f'{sub}_eddy_qc')
             
@@ -1773,4 +1782,33 @@ class DwiPreprocessingClab():
             # Run eddy QC
             # eddy_quad <eddy_output_basename> -idx <eddy_index_file> -par <eddy_acqparams_file> -m <nodif_mask> -b <bvals>
             self.sp.run(f'eddy_quad {eddyo} -idx {index} -par {acqpr} -m {bmask} -b {bvals} -o {qcout}', shell=True)
+
+            # Copy files to dataout
+            if self.copy:
+                self.log_info(f'{sub}', f'eddy: copying files to dataout')
+                # Copy the bmasks dir
+                self.sp.run(f'cp -r {self.join("tmp", sub, "bmasks")} {self.join(self.dataout, sub)}', shell=True)
+                # Copy the imgs/bmasks dir
+                self.sp.run(f'cp -r {self.join("tmp", sub, "imgs", "bmasks")} {self.join(self.dataout, sub, "imgs")}', shell=True)
+                # Copy sub-x_eddy_qc dir
+                self.sp.run(f'cp -r {self.join("tmp", sub, f"{sub}_eddy_qc")} {self.join(self.dataout, sub)}', shell=True)
+                # Copy all files that are not in files list above
+                infiles = set(files) # files that were copied in the tmp dir
+                allfiles = set([f for f in self.ls(self.join("tmp", sub)) if self.isfile(self.join("tmp", sub, f))]) # all files that are in the dir
+                outfiles = list(allfiles - infiles) # only the new files are kept
+                for file in outfiles:
+                    self.sp.run(f'cp {self.join("tmp", sub, file)} {self.join(self.dataout, sub )}', shell=True)
+
+                self.log_ok(f'{sub}', f'eddy: finished copying files to dataout')
+
+            # Clean tmp folder
+            if self.clean:
+                self.sp.run(f'rm -rf {self.join("tmp", sub)}', shell=True)
+                self.log_info(f'{sub}', f'eddy: tmp folder cleaned')
+
+            # Stop timer
+            t1 = perf_counter()
+            print(f"{sub} eddy duration {(t1 - t0)/60:0.4f} minutes")
+            # Log end
+            self.log_subjectEnd(sub, 'eddy, duration: ' + str((t1 - t0)/60))
             
