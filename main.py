@@ -1761,7 +1761,6 @@ class DwiPreprocessingClab():
             img, __ = self.load_nifti(self.join('tmp', sub, f'{sub}_AP_gib_mppca.nii.gz'))
             with open(self.join('tmp', sub, f'{sub}_index.txt'), 'w') as f:
                 for i in range(img.shape[3]):
-                    # FIXME: check if this is correct
                     f.write(f'1\n')
             
             bmask = self.join('tmp', sub, 'bmasks', f'{sub}_b0_bet_f-02_mask.nii.gz')
