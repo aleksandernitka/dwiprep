@@ -1868,7 +1868,7 @@ class DwiAnalysisClab():
             print(f'Creating tmp dir {self.tmp_dir}')
             makedirs(self.tmp_dir)
         else:
-            if not listdir(self.tmp_dir):
+            if len(listdir(self.tmp_dir)) != 0:
                 rm = input(f'Tmp dir {self.tmp_dir} is not empty, should I remove all data from it (cannot be undone). [y/n]: ')
                 if rm == 'y':
                     print(f'Removing all data from {self.tmp_dir}')
