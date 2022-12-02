@@ -1833,14 +1833,18 @@ class DwiAnalysisClab():
 
     """
 
-    def __init__(self, dwi_preproc_dir, dwi_mrtrix_dir, t1_dir, subjects_list, skip_processed=True, threads=40,\
+    def __init__(self, dwi_preproc_dir, dwi_mrtrix_dir, t1_dir, freesurfer_dir, subjects_list, skip_processed=True, threads=40,\
                 telegram=True, tmp_dir = 'tmp', clear_tmp=True, move_from_tmp=True):
 
         self.dwi_preproc_dir = dwi_preproc_dir # path to dwi_preproc_dir, where the preprocessed data lives
         self.dwi_preproc_subs = [] # list of preprocessed subs
         self.dwi_mrtrix_dir = dwi_mrtrix_dir # this is where the dwi data will be saved
         self.dwi_mrtrix_subs = [] # list of MRTrix3 subs
+        self.freesurfer_dir = freesurfer_dir # path to freesurfer dir
+        self.freesurfer_subs = [] # list of freesurfer subs
         self.t1dir = t1_dir # path to t1 dir (hMRI)
+        self.t1subs = [] # list of t1 subs
+
         self.subjects_list = subjects_list
         self.skip_processed = skip_processed
         self.threads = threads
@@ -1876,7 +1880,7 @@ class DwiAnalysisClab():
                 else:
                     print(f'Will continue with existing data in {self.tmp_dir}')
 
-    def check_dirs(self):
+    def check_dirs_and_subs(self):
         """
         Check if the directories exist and create them if they don't. Also take stock of the subjects 
         that have been processed and preprocessed.
@@ -1888,6 +1892,9 @@ class DwiAnalysisClab():
 
         from os.path import exists
         from os import makedirs, listdir
+
+        print('Checking directories and subjects...')
+        print(f'Provided {len(self.subjects_list)} subjects.')
 
         if not self.dirs_checked:
 
@@ -1922,21 +1929,72 @@ class DwiAnalysisClab():
                     print('No subjects found in MRTrix3 directory. Continuing...')
                 else:
                     print(f'Found {len(self.dwi_mrtix_subs)} subjects. Continuing...')
-            
-            # if you got here, all good
-            self.dirs_checked = True
-            return True
 
-    def mr_start_sub(self, sub, ):
+            # Check freesurfer directory
+            if not exists(self.freesurfer_dir):
+                print('Freesurfer directory does not exist. Please check the path.')
+                return False
+            else:
+                print('Freesurfer directory exists. Continuing...')
+                self.freesurfer_subs = [f for f in listdir(self.freesurfer_dir) if f.startswith('sub-')]
+                if len(self.freesurfer_subs) == 0:
+                    print('No subjects found in freesurfer directory. Please check the path.')
+                    return False
+                print(f'Found {len(self.freesurfer_subs)} subjects. Continuing...')
+
+            # Check t1 directory
+            if not exists(self.t1dir):
+                print('T1 directory does not exist. Please check the path.')
+                return False
+            else:
+                print('T1 directory exists. Continuing...')
+                self.t1subs = [f for f in listdir(self.t1dir) if f.startswith('sub-')]
+                if len(self.t1subs) == 0:
+                    print('No subjects found in t1 directory. Please check the path.')
+                    return False
+                print(f'Found {len(self.t1subs)} subjects. Continuing...')
+
+            # Check if all subjects are present in all directories
+            for sub in self.subjects_list:
+                if sub not in self.dwi_preproc_subs:
+                    print(f'Subject {sub} not found in preprocessed data directory. Removing from the list.')
+                    self.subjects_list.remove(sub)
+                    continue
+                if sub not in self.freesurfer_subs:
+                    print(f'Subject {sub} not found in freesurfer directory. Removing from the list.')
+                    self.subjects_list.remove(sub)
+                    continue
+                if sub not in self.t1subs:
+                    print(f'Subject {sub} not found in t1 directory.  Removing from the list.')
+                    self.subjects_list.remove(sub)
+                    continue
+            
+            if len(self.subjects_list) == 0:
+                print('No subjects found in all directories. Exiting...')
+                return False
+            else:
+                print(f'Found {len(self.subjects_list)} subjects in all directories. Continuing...')
+            
+            cont = input('Press any key to continue or q to quit.')
+            if 'q' in cont:
+                return False
+            else:
+                # if you got here, all good
+                self.dirs_checked = True
+                return True
+
+    def mr_start_sub(self, sub):
+        
         """
         Convert the preprocessed DWI data to MRTrix3 format and perform initial steps.
+        - Based on the script from the MRTrix3 tutorials.
+        - Andy's course https://andysbrainbook.readthedocs.io/en/latest/MRtrix/MRtrix_Course/
+        - Claude Bajda's scripts
         """
 
         import subprocess as sp
         from os import makedirs
         from os.path import exists, join
-
-        # TODO - clear tmp at the start y/n
         
         if not sub.startswith('sub-'):
             sub = 'sub-' + sub
@@ -1951,6 +2009,8 @@ class DwiAnalysisClab():
         udwi = join('tmp', sub, f'{sub}_dwi_upsampled.mif')
         # set the t1w file link
         t1w = join(self.t1dir, sub, 'Results', f'{sub}_synthetic_T1w.nii')
+        # set freesurfer dir
+        fsd = join(self.freesurfer_dir, sub)
 
         # check if {pdwi}/{sub}_dwi.eddy_rotated_bvecs exists
         if not exists(join(pdwi, f'{sub}_dwi.eddy_rotated_bvecs')):
@@ -1975,6 +2035,9 @@ class DwiAnalysisClab():
 
         # run mrconvert, pack in eddy corrected bvecs, bvals
         sp.run(f'mrconvert -fslgrad {pdwi}/{sub}_dwi.eddy_rotated_bvecs {pdwi}/{sub}_AP.bval -nthreads {self.threads} {pdwi}/{sub}_dwi.nii.gz {dwi}', shell=True)
+
+        # copy t1w to tmp
+        sp.run(f'mrconvert {t1w} {join(tdwi, sub+"_t1w.mif")}', shell=True)
 
         # correct bias, improves the brain extraction inm later step. 
         # we overwrite the image here, so use -force
@@ -2001,10 +2064,14 @@ class DwiAnalysisClab():
         # DTI metrics
         sp.run(f'tensor2metric -adc {tdwi}/{sub}_dt_adc.mif -fa {tdwi}/{sub}_dt_fa.mif -ad {tdwi}/{sub}_dt_ad.mif -rd {tdwi}/{sub}_dt_rd.mif -value {tdwi}/{sub}_dt_eigval.mif -vector {tdwi}/{sub}_dt_eigvec.mif -cl {tdwi}/{sub}_dt_cl.mif -cp {tdwi}/{sub}_dt_cp.mif -cs {tdwi}/{sub}_dt_cs.mif {tdwi}/{sub}_dt.mif', shell=True)
 
-        # T1w TODO
-
         # DKI metrics, this is in development, not sure if it works
         # f'tensor2metric -mk {tdwi}/{sub}_dk_mk.mif -ak {tdwi}/{sub}_dk_ak.mif -rk {tdwi}/{sub}_dk_rk.mif -mask {tdwi}/mask.mif -dkt {tdwi}/{sub}_dkt.mif'
+
+        # Segment tissues, with freesurfer's help
+        sp.run(f'5ttgen hsvs -hippocampi subfields -thalami nuclei -white_stem -nthreads {self.threads} {fsd} {tdwi}/5tt.mif', shell=True)
+
+        # Create mean b0 image
+        sp.run(f'dwiextract {dwi} - -bzero | mrmath - mean {tdwi}/mean_b0.mif -axis 3', shell=True))
 
         # that's all for now, let's move it back to nas.
 
@@ -2032,6 +2099,9 @@ class DwiAnalysisClab():
         from statistics import median as median
         from datetime import timedelta as td
 
+        # clear the durations store
+        self.durations = []
+
         for i, s in enumerate(self.subjects_list):
 
             # Start timer
@@ -2049,8 +2119,9 @@ class DwiAnalysisClab():
                 print(f'{datetime.now()} Estimated remaining: {(len(self.subjects_list)-i-1)*median(self.durations):.2f} minutes. ETA: {datetime.now()+td(minutes=(len(self.subjects_list)-i-1)*median(self.durations))}')
         
 
-    def tractography(self, sub):
+    def act(self, sub):
 
+        # 
         # ANDYS pipeline
         # TODO
 
