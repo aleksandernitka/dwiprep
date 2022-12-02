@@ -1909,6 +1909,8 @@ class DwiAnalysisClab():
 
         # TODO - see if there is any differed by adding bvals and bvecs to mif that already packs it, in other words, does the mif pass this data ok
 
+        if not sub.startswith('sub-'):
+            sub = 'sub-' + sub
 
         # Set the location of preprocessed data for this subject
         pdwi = join(self.dwi_preproc_dir, sub)
@@ -2015,8 +2017,6 @@ class DwiAnalysisClab():
             if len(self.durations) > 2:
                 print(f'{datetime.now()} Estimated remaining: {(len(self.subjects_list)-i-1)*median(self.durations):.2f} minutes. ETA: {datetime.now()+td(minutes=(len(self.subjects_list)-i-1)*median(self.durations))}')
         
-            
-
 
     def tractography(self, sub):
 
