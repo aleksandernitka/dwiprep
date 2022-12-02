@@ -1862,6 +1862,7 @@ class DwiAnalysisClab():
 
         from os import makedirs, listdir
         from os.path import exists
+        import subprocess as sp
 
         if not exists(self.tmp_dir):
             print(f'Creating tmp dir {self.tmp_dir}')
@@ -1871,7 +1872,7 @@ class DwiAnalysisClab():
                 rm = input(f'Tmp dir {self.tmp_dir} is not empty, should I remove all data from it (cannot be undone). [y/n]: ')
                 if rm == 'y':
                     print(f'Removing all data from {self.tmp_dir}')
-                    self.sp.run(f'rm -rf {self.tmp_dir}/*', shell=True)
+                    sp.run(f'rm -rf {self.tmp_dir}/*', shell=True)
                 else:
                     print(f'Will continue with existing data in {self.tmp_dir}')
 
