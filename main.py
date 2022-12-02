@@ -1822,3 +1822,229 @@ class DwiPreprocessingClab():
         if self.telegram:
             self.tg(f'{self.task}: eddy finished')
             
+class DwiAnalysisClab():
+
+    """
+    Runs steps with mrtrix3, assumes data is preprocessed with DwiPreprocessingClab() Suggested to run in a
+    container (singularity) with mrtrix3 installed. 
+
+    singularity build MRtrix3.sif docker://mrtrix3/mrtrix3:3.0.3 then
+    singularity shell --bind /mnt:/mnt MRtrix3.sif 
+
+    """
+
+    def __init__(self, dwi_preproc_dir, dwi_mrtix_dir, t1_dir, subjects_list, skip_processed=True, threads=40,\
+                telegram=True, clear_tmp=True, move_from_tmp=True):
+
+        self.dwi_preproc_dir = dwi_preproc_dir # path to dwi_preproc_dir, where the preprocessed data lives
+        self.dwi_preproc_subs = [] # list of preprocessed subs
+        self.dwi_mrtix_dir = dwi_mrtix_dir # this is where the dwi data will be saved
+        self.dwi_mrtix_subs = [] # list of MRTrix3 subs
+        self.t1dir = t1_dir # path to t1 dir (hMRI)
+        self.subjects_list = subjects_list
+        self.skip_processed = skip_processed
+        self.threads = threads
+        self.telegram = telegram
+        self.clear = clear_tmp
+        self.move = move_from_tmp
+        self.durations = []
+
+    def check_dirs(self):
+        """
+        Check if the directories exist and create them if they don't. Also take stock of the subjects 
+        that have been processed and preprocessed.
+
+        Returns: 
+        True if all good and 
+        False if not.
+        """
+
+        from os.path import exists
+        from os import makedirs, listdir
+
+        # Check preprocessed data directory and save list of subjects
+        if not exists(self.dwi_preproc_dir):
+            print('Preprocessed data directory does not exist. Please check the path.')
+            return False
+        else:
+            print('Preprocessed data directory exists. Continuing...')
+            self.dwi_preproc_subs = [f for f in listdir(self.dwi_preproc_dir) if f.startswith('sub-')]
+            if len(self.dwi_preproc_subs) == 0:
+                print('No subjects found in preprocessed data directory. Please check the path.')
+                return False
+            print(f'Found {len(self.dwi_preproc_subs)} subjects. Continuing...')
+
+        # Check MRTrix3 directory, create if it does not exist
+        if not exists(self.dwi_mrtix_dir):
+            r = input(f'The directory {self.dwi_mrtix_dir} does not exist. Press y key to create it.')
+            if 'y' in r:
+                try:
+                    makedirs(self.dwi_mrtix_dir)
+                except:
+                    print(f'Could not create {self.dwi_mrtix_dir}. Cannot continue.')
+                    return False
+            else:
+                print('Exiting...')
+                return False
+        else:
+            print('MRTrix3 directory exists. Continuing...')
+            self.dwi_mrtix_subs = [f for f in listdir(self.dwi_mrtix_dir) if f.startswith('sub-')]
+            if len(self.dwi_mrtix_subs) == 0:
+                print('No subjects found in MRTrix3 directory. Continuing...')
+            else:
+                print(f'Found {len(self.dwi_mrtix_subs)} subjects. Continuing...')
+        
+        # if you got here, all good
+        return True
+
+    def mr_start_sub(self, sub, ):
+        """
+        Convert the preprocessed DWI data to MRTrix3 format and perform initial steps.
+        """
+
+        import subprocess as sp
+        from os import makedirs
+        from os.path import exists, join
+        
+        # TODO check if the dir exists in the MRTrix3 dir, if not create it
+        # TODO check if the subject has been processed, if so, skip (check self.dwi_skip_processed)
+        # TODO copy app required files to the MRTrix3 dir, bvals etc, post eddy correction
+        # TODO FIXME correct bvals to appropriate format?
+
+        # Set the location of preprocessed data for this subject
+        pdwi = join(self.dwi_preproc_dir, sub)
+        # Set the location for tmp data for this subject
+        tdwi = join('tmp', sub)
+        # set the main DWI file link
+        dwi = join('tmp', sub, f'{sub}_dwi.mif')
+        # set the upsampled DWI file link
+        udwi = join('tmp', sub, f'{sub}_dwi_upsampled.mif')
+        # set the t1w file link
+        t1w = join(self.t1dir, sub, 'Results', f'{sub}_synthetic_T1w.nii')
+
+        # check if {pdwi}/{sub}_dwi.eddy_rotated_bvecs exists
+        if not exists(join(pdwi, f'{sub}_dwi.eddy_rotated_bvecs')):
+            print(f'{sub} does not have a rotated bvecs file. Cannot continue.')
+            # TODO save file to log
+            sp.run(f'touch {sub}_err_noeddy.txt', shell=True))
+            return False
+        
+        if not exists(t1w):
+            print(f'{sub} does not have a T1w file. Cannot continue.')
+            sp.run(f'touch {sub}_err_not1w.txt', shell=True))
+            return False
+
+        # check if sub has been processed
+        if self.skip_processed:
+            if exists(f'{pdwi}wm.mif') or exists(f'{sub}_err_not1w.txt') or exists(f'{sub}_err_noeddy.txt'):
+                print(f'{sub} has been processed. Skipping...')
+                return True
+
+
+        # Make sub- dir in tmp
+        makedirs(f'tmp/{sub}', exist_ok=True)
+
+        # run mrconvert, pack in eddy corrected bvecs, bvals
+        sp.run(f'mrconvert -fslgrad {pdwi}/{sub}_dwi.eddy_rotated_bvecs {pdwi}/{sub}_AP.bval -nthreads {self.threads} -force {pdwi}/{sub}_dwi.nii.gz {dwi}', shell=True)
+
+        # correct bias, improves the brain extraction inm later step.
+        sp.run(f'dwibiascorrect ants -nthreads {self.threads} -force {dwi} {dwi} -bias {tdwi}bias.mif', shell=True)
+
+        # run brain mask
+        sp.run(f'dwi2mask {udwi} {tdwi}/mask.mif -nthreads {self.threads} -force', shell=True)
+
+        # run dwi2response for Multi-tissue CSD
+        # Method citation: Tournier et al. NeuroImage 2007. Robust determination of the fibre orientation distribution in diffusion MRI: Non-negativity constrained super-resolved spherical deconvolution
+        # link https://mrtrix.readthedocs.io/en/latest/constrained_spherical_deconvolution/response_function_estimation.html#dhollander
+        sp.run(f'dwi2response dhollander {udwi} {tdwi}wm.txt {tdwi}gm.txt {tdwi}csf.txt –voxels {tdwi}voxels.mif -mask {tdwi}mask.mif -nthreads {self.threads}', shell=True)
+
+        # CSD (constrained spherical deconvolution)
+        # Multi-shell multi-tissue constrained spherical deconvolution (MSMT-CSD)
+        sp.run(f'dwi2fod -nthreads {self.threads} -force msmt_csd {udwi} {tdwi}wm.txt {tdwi}wm.mif {tdwi}gm.txt {tdwi}gm.mif {tdwi}csf.txt {tdwi}csf.mif -mask {tdwi}mask.mif', shell=True)
+        
+        # Normalise
+        sp.run(f'mtnormalise {tdwi}wm.mif {tdwi}wm_norm.mif {tdwi}gm.mif {tdwi}gm_norm.mif {tdwi}csf.mif {tdwi}csf_norm.mif -mask {tdwi}mask.mif', shell=True)
+
+        # DT
+        sp.run(f'dwi2tensor {udwi} {tdwi}{sub}_dt.mif -mask {tdwi}mask.mif -nthreads {self.threads} -force -b0 {tdwi}b0.mif -dkt {tdwi}{sub}_dkt.mif -predicted_signal {tdwi}predicted_signal.mif', shell=True)
+
+        # DTI metrics
+        sp.run(f'tensor2metric -adc {tdwi}{sub}_dt_adc.mif -fa {tdwi}{sub}_dt_fa.mif -ad {tdwi}{sub}_dt_ad.mif -rd {tdwi}{sub}_dt_rd.mif -value {tdwi}{sub}_dt_eigval.mif -vector {tdwi}{sub}_dt_eigvec.mif -cl {tdwi}{sub}_dt_cl.mif -cp {tdwi}{sub}_dt_cp.mif -cs {tdwi}{sub}_dt_cs.mif {tdwi}{sub}_dt.mif', shell=True)
+
+        # DKI metrics, this is in development, not sure if it works
+        # f'tensor2metric -mk {tdwi}{sub}_dk_mk.mif -ak {tdwi}{sub}_dk_ak.mif -rk {tdwi}{sub}_dk_rk.mif -mask {tdwi}mask.mif -dkt {tdwi}{sub}_dkt.mif'
+
+        # that's all for now, let's move it back to nas.
+
+        if self.move:
+            if exists(join(self.dwi_mrtrix3_dir, sub)):
+                print(f'{sub} already exists in MRTrix3 dir. Skipping...')
+                # TODO ask if overwrite + send msg to telegram?
+            else:
+                sp.run(f'mkdir {join(self.dwi_mrtix_dir, sub)}', shell=True)
+                sp.run(f'cp -r {tdwi} {join(self.dwi_mrtix_dir, sub)}', shell=True)
+
+        if self.clear:
+            sp.run(f'rm -rf {tdwi}', shell=True)
+
+        # all done
+        return True
+
+    def mr_start(self):
+        """
+        Start the pipeline, process all subs in the list
+        """
+        
+        from time import perf_counter as ptime
+        from datetime import datetime
+        from statistics import median as median
+        from datetime import timedelta as td
+
+        for i, s in enumerate(self.subjects_list):
+
+            # Start timer
+            start = ptime()
+            print(f'{datetime.now()} Starting {s}: {i+1}/{len(self.subjects_list)}')
+
+            if self.mr_start_sub(s):
+                stop = ptime()
+                print(f'{datetime.now()} {s} done in {(stop-start)/60:.2f} minutes')
+                self.durations.append((stop-start)/60)
+            else:
+                print(f'{datetime.now()} {s} failed.')
+
+            if len(self.durations) > 2:
+                print(f'{datetime.now()} Estimated remaining: {(len(self.subjects_list)-i-1)*median(self.durations):.2f} minutes. ETA: {datetime.now()+td(minutes=(len(self.subjects_list)-i-1)*median(self.durations))}')
+        
+            
+
+
+    def tractography(self, sub):
+
+        # ANDYS pipeline
+        # TODO
+
+        pass
+
+    def fixels(self, sub):
+        # FIXEL BASED ANALYSIS
+        ### the below will require mean response function estimation ###
+        # https://mrtrix.readthedocs.io/en/latest/fixel_based_analysis/mt_fibre_density_cross-section.html
+        '''
+        # Upsample the DWI data to 1.25mm isotropic voxels
+        f'mrgrid {dwi} regrid -vox 1.25 {udwi}'
+
+        # run brain mask for upsampled data
+        f'dwi2mask {udwi} {tdwi}/mask_ups.mif -nthreads {self.threads}'
+
+        # CSD (constrained spherical deconvolution)
+        # Multi-shell multi-tissue constrained spherical deconvolution (MSMT-CSD)
+        f'dwi2fod -nthreads {self.threads} -force msmt_csd {udwi} {tdwi}wm.txt {tdwi}wm.mif {tdwi}gm.txt {tdwi}gm.mif {tdwi}csf.txt {tdwi}csf.mif -mask {tdwi}mask_ups.mif'
+        
+        # Create a QC image of the response function
+        f'mrconvert -coord 3 0 {tdwi}wm.mif - | mrcat {tdwi}csf.mif {tdwi}gm.mif - {tdwi}qa_vf.mif'
+
+        # Normalise
+        f'mtnormalise {tdwi}wm.mif {tdwi}wm_norm.mif {tdwi}gm.mif {tdwi}gm_norm.mif {tdwi}csf.mif {tdwi}csf_norm.mif -mask {tdwi}mask_ups.mif'
+        '''
+
