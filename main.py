@@ -1989,7 +1989,7 @@ class DwiAnalysisClab():
         Convert the preprocessed DWI data to MRTrix3 format and perform initial steps.
         - Based on the script from the MRTrix3 tutorials.
         - Andy's course https://andysbrainbook.readthedocs.io/en/latest/MRtrix/MRtrix_Course/
-        - Claude Bajda's scripts
+        - Claude Bajada's scripts
         """
 
         import subprocess as sp
@@ -2071,7 +2071,29 @@ class DwiAnalysisClab():
         sp.run(f'5ttgen hsvs -hippocampi subfields -thalami nuclei -white_stem -nthreads {self.threads} {fsd} {tdwi}/5tt.mif', shell=True)
 
         # Create mean b0 image
-        sp.run(f'dwiextract {dwi} - -bzero | mrmath - mean {tdwi}/mean_b0.mif -axis 3', shell=True))
+        sp.run(f'dwiextract {dwi} - -bzero | mrmath - mean {tdwi}/mean_b0.mif -axis 3', shell=True)
+
+        # To use FSL's FLIRT we need to convert the image to NIFTI
+        sp.run(f'mrconvert {tdwi}/mean_b0.mif {tdwi}/mean_b0.nii.gz', shell=True)
+        sp.run(f'mrconvert {tdwi}/5tt.mif {tdwi}/5tt.nii.gz', shell=True)
+
+        # extract GM from the 5tt image
+        sp.run(f'fslroi {tdwi}/5tt.nii.gz {tdwi}/5tt_vol0.nii.gz 0 1', shell=True)
+
+        # FLIRT registration
+        sp.run(f'flirt -in {tdwi}/mean_b0.nii.gz -ref {tdwi}/5tt_vol0.nii.gz -interp nearestneighbour -dof 6 -omat {tdwi}/diff2struct_fsl.mat', shell=True)
+
+        # Convert transformation matrix to mrtrix format
+        sp.run(f'transformconvert {tdwi}/diff2struct_fsl.mat {tdwi}/mean_b0.nii.gz {tdwi}/5tt.nii.gz flirt_import {tdwi}/diff2struct_mrtrix.txt', shell=True)
+
+        # Transform the 5tt image
+        sp.run(f'mrtransform {tdwi}/5tt.mif -linear {tdwi}/diff2struct_mrtrix.txt -inverse {tdwi}/5tt_coreg.mif', shell=True)
+
+        # mask for seeding
+        sp.run(f'5tt2gmwmi {tdwi}/5tt_coreg.mif {tdwi}/5tt_coreg_gmwmi.mif', shell=True)
+
+        # QA TODO
+        # sp.run(f'mrview {dwi} -overlay.load {tdwi}/5tt_coreg_gmwmi.mif', shell=True)
 
         # that's all for now, let's move it back to nas.
 
