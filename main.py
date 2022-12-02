@@ -1905,11 +1905,6 @@ class DwiAnalysisClab():
         import subprocess as sp
         from os import makedirs
         from os.path import exists, join
-        
-        # TODO check if the dir exists in the MRTrix3 dir, if not create it
-        # TODO check if the subject has been processed, if so, skip (check self.dwi_skip_processed)
-        # TODO copy app required files to the MRTrix3 dir, bvals etc, post eddy correction
-        # TODO FIXME correct bvals to appropriate format?
 
         # Set the location of preprocessed data for this subject
         pdwi = join(self.dwi_preproc_dir, sub)
