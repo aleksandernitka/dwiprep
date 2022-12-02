@@ -1849,6 +1849,11 @@ class DwiAnalysisClab():
         self.clear = clear_tmp
         self.move = move_from_tmp
         self.durations = []
+        self.dirs_checked = False
+
+        self.tmp()
+
+        self.check_dirs()
 
     def tmp(self):
         """
@@ -1870,7 +1875,6 @@ class DwiAnalysisClab():
                 else:
                     print(f'Will continue with existing data in {self.tmp_dir}')
 
-
     def check_dirs(self):
         """
         Check if the directories exist and create them if they don't. Also take stock of the subjects 
@@ -1884,40 +1888,43 @@ class DwiAnalysisClab():
         from os.path import exists
         from os import makedirs, listdir
 
-        # Check preprocessed data directory and save list of subjects
-        if not exists(self.dwi_preproc_dir):
-            print('Preprocessed data directory does not exist. Please check the path.')
-            return False
-        else:
-            print('Preprocessed data directory exists. Continuing...')
-            self.dwi_preproc_subs = [f for f in listdir(self.dwi_preproc_dir) if f.startswith('sub-')]
-            if len(self.dwi_preproc_subs) == 0:
-                print('No subjects found in preprocessed data directory. Please check the path.')
-                return False
-            print(f'Found {len(self.dwi_preproc_subs)} subjects. Continuing...')
+        if not self.dirs_checked:
 
-        # Check MRTrix3 directory, create if it does not exist
-        if not exists(self.dwi_mrtrix_dir):
-            r = input(f'The directory {self.dwi_mrtrix_dir} does not exist. Press y key to create it.')
-            if 'y' in r:
-                try:
-                    makedirs(self.dwi_mrtrix_dir)
-                except:
-                    print(f'Could not create {self.dwi_mrtrix_dir}. Cannot continue.')
+            # Check preprocessed data directory and save list of subjects
+            if not exists(self.dwi_preproc_dir):
+                print('Preprocessed data directory does not exist. Please check the path.')
+                return False
+            else:
+                print('Preprocessed data directory exists. Continuing...')
+                self.dwi_preproc_subs = [f for f in listdir(self.dwi_preproc_dir) if f.startswith('sub-')]
+                if len(self.dwi_preproc_subs) == 0:
+                    print('No subjects found in preprocessed data directory. Please check the path.')
+                    return False
+                print(f'Found {len(self.dwi_preproc_subs)} subjects. Continuing...')
+
+            # Check MRTrix3 directory, create if it does not exist
+            if not exists(self.dwi_mrtrix_dir):
+                r = input(f'The directory {self.dwi_mrtrix_dir} does not exist. Press y key to create it.')
+                if 'y' in r:
+                    try:
+                        makedirs(self.dwi_mrtrix_dir)
+                    except:
+                        print(f'Could not create {self.dwi_mrtrix_dir}. Cannot continue.')
+                        return False
+                else:
+                    print('Exiting...')
                     return False
             else:
-                print('Exiting...')
-                return False
-        else:
-            print('MRTrix3 directory exists. Continuing...')
-            self.dwi_mrtix_subs = [f for f in listdir(self.dwi_mrtrix_dir) if f.startswith('sub-')]
-            if len(self.dwi_mrtix_subs) == 0:
-                print('No subjects found in MRTrix3 directory. Continuing...')
-            else:
-                print(f'Found {len(self.dwi_mrtix_subs)} subjects. Continuing...')
-        
-        # if you got here, all good
-        return True
+                print('MRTrix3 directory exists. Continuing...')
+                self.dwi_mrtix_subs = [f for f in listdir(self.dwi_mrtrix_dir) if f.startswith('sub-')]
+                if len(self.dwi_mrtix_subs) == 0:
+                    print('No subjects found in MRTrix3 directory. Continuing...')
+                else:
+                    print(f'Found {len(self.dwi_mrtix_subs)} subjects. Continuing...')
+            
+            # if you got here, all good
+            self.dirs_checked = True
+            return True
 
     def mr_start_sub(self, sub, ):
         """
