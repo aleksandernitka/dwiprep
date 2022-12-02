@@ -1954,7 +1954,6 @@ class DwiAnalysisClab():
         # check if {pdwi}/{sub}_dwi.eddy_rotated_bvecs exists
         if not exists(join(pdwi, f'{sub}_dwi.eddy_rotated_bvecs')):
             print(f'{sub} does not have a rotated bvecs file. Cannot continue.')
-            # TODO save file to log
             sp.run(f'touch {sub}_err_noeddy.txt', shell=True)
             return False
         
@@ -2014,7 +2013,7 @@ class DwiAnalysisClab():
                 # TODO ask if overwrite + send msg to telegram?
             else:
                 sp.run(f'mkdir {join(self.dwi_mrtrix_dir, sub)}', shell=True)
-                sp.run(f'cp -r {tdwi} {join(self.dwi_mrtrix_dir, sub)}', shell=True)
+                sp.run(f'cp -r {tdwi}/* {join(self.dwi_mrtrix_dir, sub)}', shell=True)
 
         if self.clear:
             sp.run(f'rm -rf {tdwi}', shell=True)
