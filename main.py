@@ -1972,6 +1972,8 @@ class DwiAnalysisClab():
         # DTI metrics
         sp.run(f'tensor2metric -adc {tdwi}/{sub}_dt_adc.mif -fa {tdwi}/{sub}_dt_fa.mif -ad {tdwi}/{sub}_dt_ad.mif -rd {tdwi}/{sub}_dt_rd.mif -value {tdwi}/{sub}_dt_eigval.mif -vector {tdwi}/{sub}_dt_eigvec.mif -cl {tdwi}/{sub}_dt_cl.mif -cp {tdwi}/{sub}_dt_cp.mif -cs {tdwi}/{sub}_dt_cs.mif {tdwi}/{sub}_dt.mif', shell=True)
 
+        # T1w TODO
+
         # DKI metrics, this is in development, not sure if it works
         # f'tensor2metric -mk {tdwi}/{sub}_dk_mk.mif -ak {tdwi}/{sub}_dk_ak.mif -rk {tdwi}/{sub}_dk_rk.mif -mask {tdwi}/mask.mif -dkt {tdwi}/{sub}_dkt.mif'
 
