@@ -1926,12 +1926,12 @@ class DwiAnalysisClab():
         if not exists(join(pdwi, f'{sub}_dwi.eddy_rotated_bvecs')):
             print(f'{sub} does not have a rotated bvecs file. Cannot continue.')
             # TODO save file to log
-            sp.run(f'touch {sub}_err_noeddy.txt', shell=True))
+            sp.run(f'touch {sub}_err_noeddy.txt', shell=True)
             return False
         
         if not exists(t1w):
             print(f'{sub} does not have a T1w file. Cannot continue.')
-            sp.run(f'touch {sub}_err_not1w.txt', shell=True))
+            sp.run(f'touch {sub}_err_not1w.txt', shell=True)
             return False
 
         # check if sub has been processed
@@ -2047,4 +2047,4 @@ class DwiAnalysisClab():
         # Normalise
         f'mtnormalise {tdwi}wm.mif {tdwi}wm_norm.mif {tdwi}gm.mif {tdwi}gm_norm.mif {tdwi}csf.mif {tdwi}csf_norm.mif -mask {tdwi}mask_ups.mif'
         '''
-
+        pass
