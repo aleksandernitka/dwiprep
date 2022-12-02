@@ -1946,13 +1946,13 @@ class DwiAnalysisClab():
         makedirs(f'tmp/{sub}', exist_ok=True)
 
         # run mrconvert, pack in eddy corrected bvecs, bvals
-        sp.run(f'mrconvert -fslgrad {pdwi}/{sub}_dwi.eddy_rotated_bvecs {pdwi}/{sub}_AP.bval -nthreads {self.threads} -force {pdwi}/{sub}_dwi.nii.gz {dwi}', shell=True)
+        sp.run(f'mrconvert -fslgrad {pdwi}/{sub}_dwi.eddy_rotated_bvecs {pdwi}/{sub}_AP.bval -nthreads {self.threads} {pdwi}/{sub}_dwi.nii.gz {dwi}', shell=True)
 
         # correct bias, improves the brain extraction inm later step.
-        sp.run(f'dwibiascorrect ants -nthreads {self.threads} -force {dwi} {dwi} -bias {tdwi}/bias.mif', shell=True)
+        sp.run(f'dwibiascorrect ants -nthreads {self.threads} {dwi} {dwi} -bias {tdwi}/bias.mif', shell=True)
 
         # run brain mask
-        sp.run(f'dwi2mask {dwi} {tdwi}/mask.mif -nthreads {self.threads} -force', shell=True)
+        sp.run(f'dwi2mask {dwi} {tdwi}/mask.mif -nthreads {self.threads}', shell=True)
 
         # run dwi2response for Multi-tissue CSD
         # Method citation: Tournier et al. NeuroImage 2007. Robust determination of the fibre orientation distribution in diffusion MRI: Non-negativity constrained super-resolved spherical deconvolution
@@ -1961,13 +1961,13 @@ class DwiAnalysisClab():
 
         # CSD (constrained spherical deconvolution)
         # Multi-shell multi-tissue constrained spherical deconvolution (MSMT-CSD)
-        sp.run(f'dwi2fod -nthreads {self.threads} -force msmt_csd {dwi} {tdwi}/wm.txt {tdwi}/wm.mif {tdwi}/gm.txt {tdwi}/gm.mif {tdwi}/csf.txt {tdwi}/csf.mif -mask {tdwi}/mask.mif', shell=True)
+        sp.run(f'dwi2fod -nthreads {self.threads} msmt_csd {dwi} {tdwi}/wm.txt {tdwi}/wm.mif {tdwi}/gm.txt {tdwi}/gm.mif {tdwi}/csf.txt {tdwi}/csf.mif -mask {tdwi}/mask.mif', shell=True)
         
         # Normalise
         sp.run(f'mtnormalise {tdwi}/wm.mif {tdwi}/wm_norm.mif {tdwi}/gm.mif {tdwi}/gm_norm.mif {tdwi}/csf.mif {tdwi}/csf_norm.mif -mask {tdwi}/mask.mif', shell=True)
 
         # DT
-        sp.run(f'dwi2tensor {dwi} {tdwi}/{sub}_dt.mif -mask {tdwi}/mask.mif -nthreads {self.threads} -force -b0 {tdwi}/b0.mif -dkt {tdwi}/{sub}_dkt.mif -predicted_signal {tdwi}/predicted_signal.mif', shell=True)
+        sp.run(f'dwi2tensor {dwi} {tdwi}/{sub}_dt.mif -mask {tdwi}/mask.mif -nthreads {self.threads} -b0 {tdwi}/b0.mif -dkt {tdwi}/{sub}_dkt.mif -predicted_signal {tdwi}/predicted_signal.mif', shell=True)
 
         # DTI metrics
         sp.run(f'tensor2metric -adc {tdwi}/{sub}_dt_adc.mif -fa {tdwi}/{sub}_dt_fa.mif -ad {tdwi}/{sub}_dt_ad.mif -rd {tdwi}/{sub}_dt_rd.mif -value {tdwi}/{sub}_dt_eigval.mif -vector {tdwi}/{sub}_dt_eigvec.mif -cl {tdwi}/{sub}_dt_cl.mif -cp {tdwi}/{sub}_dt_cp.mif -cs {tdwi}/{sub}_dt_cs.mif {tdwi}/{sub}_dt.mif', shell=True)
