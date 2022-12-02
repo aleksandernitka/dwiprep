@@ -1906,6 +1906,10 @@ class DwiAnalysisClab():
         from os import makedirs
         from os.path import exists, join
 
+
+        # TODO - see if there is any differed by adding bvals and bvecs to mif that already packs it, in other words, does the mif pass this data ok
+
+
         # Set the location of preprocessed data for this subject
         pdwi = join(self.dwi_preproc_dir, sub)
         # Set the location for tmp data for this subject
@@ -1951,7 +1955,7 @@ class DwiAnalysisClab():
         # run dwi2response for Multi-tissue CSD
         # Method citation: Tournier et al. NeuroImage 2007. Robust determination of the fibre orientation distribution in diffusion MRI: Non-negativity constrained super-resolved spherical deconvolution
         # link https://mrtrix.readthedocs.io/en/latest/constrained_spherical_deconvolution/response_function_estimation.html#dhollander
-        sp.run(f'dwi2response dhollander {dwi} {tdwi}/wm.txt {tdwi}/gm.txt {tdwi}/csf.txt –voxels {tdwi}/voxels.mif -mask {tdwi}/mask.mif -nthreads {self.threads}', shell=True)
+        sp.run(f'dwi2response dhollander {dwi} {tdwi}/wm.txt {tdwi}/gm.txt {tdwi}/csf.txt -voxels {tdwi}/voxels.mif -mask {tdwi}/mask.mif -nthreads {self.threads}', shell=True)
 
         # CSD (constrained spherical deconvolution)
         # Multi-shell multi-tissue constrained spherical deconvolution (MSMT-CSD)
