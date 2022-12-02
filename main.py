@@ -1967,7 +1967,7 @@ class DwiAnalysisClab():
         sp.run(f'mtnormalise {tdwi}/wm.mif {tdwi}/wm_norm.mif {tdwi}/gm.mif {tdwi}/gm_norm.mif {tdwi}/csf.mif {tdwi}/csf_norm.mif -mask {tdwi}/mask.mif', shell=True)
 
         # DT
-        sp.run(f'dwi2tensor {dwi} {tdwi}/{sub}_dt.mif -nthreads {self.threads} -force -b0 {tdwi}/b0.mif -dkt {tdwi}/{sub}_dkt.mif -predicted_signal {tdwi}/predicted_signal.mif', shell=True)
+        sp.run(f'dwi2tensor {dwi} {tdwi}/{sub}_dt.mif -mask {tdwi}/mask.mif -nthreads {self.threads} -force -b0 {tdwi}/b0.mif -dkt {tdwi}/{sub}_dkt.mif -predicted_signal {tdwi}/predicted_signal.mif', shell=True)
 
         # DTI metrics
         sp.run(f'tensor2metric -adc {tdwi}/{sub}_dt_adc.mif -fa {tdwi}/{sub}_dt_fa.mif -ad {tdwi}/{sub}_dt_ad.mif -rd {tdwi}/{sub}_dt_rd.mif -value {tdwi}/{sub}_dt_eigval.mif -vector {tdwi}/{sub}_dt_eigvec.mif -cl {tdwi}/{sub}_dt_cl.mif -cp {tdwi}/{sub}_dt_cp.mif -cs {tdwi}/{sub}_dt_cs.mif {tdwi}/{sub}_dt.mif', shell=True)
