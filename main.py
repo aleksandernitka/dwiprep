@@ -1943,7 +1943,7 @@ class DwiAnalysisClab():
         sp.run(f'mrconvert -fslgrad {pdwi}/{sub}_dwi.eddy_rotated_bvecs {pdwi}/{sub}_AP.bval -nthreads {self.threads} -force {pdwi}/{sub}_dwi.nii.gz {dwi}', shell=True)
 
         # correct bias, improves the brain extraction inm later step.
-        sp.run(f'dwibiascorrect ants -nthreads {self.threads} -force {dwi} {dwi} -bias {tdwi}bias.mif', shell=True)
+        sp.run(f'dwibiascorrect ants -nthreads {self.threads} -force {dwi} {dwi} -bias {tdwi}/bias.mif', shell=True)
 
         # run brain mask
         sp.run(f'dwi2mask {dwi} {tdwi}/mask.mif -nthreads {self.threads} -force', shell=True)
@@ -1951,23 +1951,23 @@ class DwiAnalysisClab():
         # run dwi2response for Multi-tissue CSD
         # Method citation: Tournier et al. NeuroImage 2007. Robust determination of the fibre orientation distribution in diffusion MRI: Non-negativity constrained super-resolved spherical deconvolution
         # link https://mrtrix.readthedocs.io/en/latest/constrained_spherical_deconvolution/response_function_estimation.html#dhollander
-        sp.run(f'dwi2response dhollander {dwi} {tdwi}wm.txt {tdwi}gm.txt {tdwi}csf.txt –voxels {tdwi}voxels.mif -mask {tdwi}mask.mif -nthreads {self.threads}', shell=True)
+        sp.run(f'dwi2response dhollander {dwi} {tdwi}/wm.txt {tdwi}/gm.txt {tdwi}/csf.txt –voxels {tdwi}/voxels.mif -mask {tdwi}/mask.mif -nthreads {self.threads}', shell=True)
 
         # CSD (constrained spherical deconvolution)
         # Multi-shell multi-tissue constrained spherical deconvolution (MSMT-CSD)
-        sp.run(f'dwi2fod -nthreads {self.threads} -force msmt_csd {dwi} {tdwi}wm.txt {tdwi}wm.mif {tdwi}gm.txt {tdwi}gm.mif {tdwi}csf.txt {tdwi}csf.mif -mask {tdwi}mask.mif', shell=True)
+        sp.run(f'dwi2fod -nthreads {self.threads} -force msmt_csd {dwi} {tdwi}/wm.txt {tdwi}/wm.mif {tdwi}/gm.txt {tdwi}/gm.mif {tdwi}/csf.txt {tdwi}/csf.mif -mask {tdwi}/mask.mif', shell=True)
         
         # Normalise
-        sp.run(f'mtnormalise {tdwi}wm.mif {tdwi}wm_norm.mif {tdwi}gm.mif {tdwi}gm_norm.mif {tdwi}csf.mif {tdwi}csf_norm.mif -mask {tdwi}mask.mif', shell=True)
+        sp.run(f'mtnormalise {tdwi}/wm.mif {tdwi}/wm_norm.mif {tdwi}/gm.mif {tdwi}/gm_norm.mif {tdwi}/csf.mif {tdwi}/csf_norm.mif -mask {tdwi}/mask.mif', shell=True)
 
         # DT
-        sp.run(f'dwi2tensor {dwi} {tdwi}{sub}_dt.mif -mask {tdwi}mask.mif -nthreads {self.threads} -force -b0 {tdwi}b0.mif -dkt {tdwi}{sub}_dkt.mif -predicted_signal {tdwi}predicted_signal.mif', shell=True)
+        sp.run(f'dwi2tensor {dwi} {tdwi}/{sub}_dt.mif -mask {tdwi}/mask.mif -nthreads {self.threads} -force -b0 {tdwi}/b0.mif -dkt {tdwi}/{sub}_dkt.mif -predicted_signal {tdwi}/predicted_signal.mif', shell=True)
 
         # DTI metrics
-        sp.run(f'tensor2metric -adc {tdwi}{sub}_dt_adc.mif -fa {tdwi}{sub}_dt_fa.mif -ad {tdwi}{sub}_dt_ad.mif -rd {tdwi}{sub}_dt_rd.mif -value {tdwi}{sub}_dt_eigval.mif -vector {tdwi}{sub}_dt_eigvec.mif -cl {tdwi}{sub}_dt_cl.mif -cp {tdwi}{sub}_dt_cp.mif -cs {tdwi}{sub}_dt_cs.mif {tdwi}{sub}_dt.mif', shell=True)
+        sp.run(f'tensor2metric -adc {tdwi}/{sub}_dt_adc.mif -fa {tdwi}/{sub}_dt_fa.mif -ad {tdwi}/{sub}_dt_ad.mif -rd {tdwi}/{sub}_dt_rd.mif -value {tdwi}/{sub}_dt_eigval.mif -vector {tdwi}/{sub}_dt_eigvec.mif -cl {tdwi}/{sub}_dt_cl.mif -cp {tdwi}/{sub}_dt_cp.mif -cs {tdwi}/{sub}_dt_cs.mif {tdwi}/{sub}_dt.mif', shell=True)
 
         # DKI metrics, this is in development, not sure if it works
-        # f'tensor2metric -mk {tdwi}{sub}_dk_mk.mif -ak {tdwi}{sub}_dk_ak.mif -rk {tdwi}{sub}_dk_rk.mif -mask {tdwi}mask.mif -dkt {tdwi}{sub}_dkt.mif'
+        # f'tensor2metric -mk {tdwi}/{sub}_dk_mk.mif -ak {tdwi}/{sub}_dk_ak.mif -rk {tdwi}/{sub}_dk_rk.mif -mask {tdwi}/mask.mif -dkt {tdwi}/{sub}_dkt.mif'
 
         # that's all for now, let's move it back to nas.
 
@@ -2034,12 +2034,12 @@ class DwiAnalysisClab():
 
         # CSD (constrained spherical deconvolution)
         # Multi-shell multi-tissue constrained spherical deconvolution (MSMT-CSD)
-        f'dwi2fod -nthreads {self.threads} -force msmt_csd {udwi} {tdwi}wm.txt {tdwi}wm.mif {tdwi}gm.txt {tdwi}gm.mif {tdwi}csf.txt {tdwi}csf.mif -mask {tdwi}mask_ups.mif'
+        f'dwi2fod -nthreads {self.threads} -force msmt_csd {udwi} {tdwi}/wm.txt {tdwi}/wm.mif {tdwi}/gm.txt {tdwi}/gm.mif {tdwi}/csf.txt {tdwi}/csf.mif -mask {tdwi}/mask_ups.mif'
         
         # Create a QC image of the response function
-        f'mrconvert -coord 3 0 {tdwi}wm.mif - | mrcat {tdwi}csf.mif {tdwi}gm.mif - {tdwi}qa_vf.mif'
+        f'mrconvert -coord 3 0 {tdwi}/wm.mif - | mrcat {tdwi}/csf.mif {tdwi}/gm.mif - {tdwi}/qa_vf.mif'
 
         # Normalise
-        f'mtnormalise {tdwi}wm.mif {tdwi}wm_norm.mif {tdwi}gm.mif {tdwi}gm_norm.mif {tdwi}csf.mif {tdwi}csf_norm.mif -mask {tdwi}mask_ups.mif'
+        f'mtnormalise {tdwi}/wm.mif {tdwi}/wm_norm.mif {tdwi}/gm.mif {tdwi}/gm_norm.mif {tdwi}/csf.mif {tdwi}/csf_norm.mif -mask {tdwi}/mask_ups.mif'
         '''
         pass
