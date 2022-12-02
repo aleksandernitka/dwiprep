@@ -1948,8 +1948,9 @@ class DwiAnalysisClab():
         # run mrconvert, pack in eddy corrected bvecs, bvals
         sp.run(f'mrconvert -fslgrad {pdwi}/{sub}_dwi.eddy_rotated_bvecs {pdwi}/{sub}_AP.bval -nthreads {self.threads} {pdwi}/{sub}_dwi.nii.gz {dwi}', shell=True)
 
-        # correct bias, improves the brain extraction inm later step.
-        sp.run(f'dwibiascorrect ants -nthreads {self.threads} {dwi} {dwi} -bias {tdwi}/bias.mif', shell=True)
+        # correct bias, improves the brain extraction inm later step. 
+        # we overwrite the image here, so use -force
+        sp.run(f'dwibiascorrect ants -nthreads {self.threads} {dwi} {dwi} -bias {tdwi}/bias.mif -force', shell=True)
 
         # run brain mask
         sp.run(f'dwi2mask {dwi} {tdwi}/mask.mif -nthreads {self.threads}', shell=True)
