@@ -1857,7 +1857,7 @@ class DwiAnalysisClab():
 
         self.tmp()
 
-        self.check_dirs()
+        self.check_dirs_and_subs()
 
     def tmp(self):
         """
@@ -2071,7 +2071,7 @@ class DwiAnalysisClab():
         sp.run(f'5ttgen hsvs -hippocampi subfields -thalami nuclei -white_stem -nthreads {self.threads} {fsd} {tdwi}/5tt.mif', shell=True)
 
         # Create mean b0 image
-        sp.run(f'dwiextract {dwi} - -bzero | mrmath - mean {tdwi}/mean_b0.mif -axis 3', shell=True))
+        sp.run(f'dwiextract {dwi} - -bzero | mrmath - mean {tdwi}/mean_b0.mif -axis 3', shell=True)
 
         # that's all for now, let's move it back to nas.
 
