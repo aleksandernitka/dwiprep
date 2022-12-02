@@ -1833,13 +1833,13 @@ class DwiAnalysisClab():
 
     """
 
-    def __init__(self, dwi_preproc_dir, dwi_mrtix_dir, t1_dir, subjects_list, skip_processed=True, threads=40,\
+    def __init__(self, dwi_preproc_dir, dwi_mrtrix_dir, t1_dir, subjects_list, skip_processed=True, threads=40,\
                 telegram=True, clear_tmp=True, move_from_tmp=True):
 
         self.dwi_preproc_dir = dwi_preproc_dir # path to dwi_preproc_dir, where the preprocessed data lives
         self.dwi_preproc_subs = [] # list of preprocessed subs
-        self.dwi_mrtix_dir = dwi_mrtix_dir # this is where the dwi data will be saved
-        self.dwi_mrtix_subs = [] # list of MRTrix3 subs
+        self.dwi_mrtrix_dir = dwi_mrtrix_dir # this is where the dwi data will be saved
+        self.dwi_mrtrix_subs = [] # list of MRTrix3 subs
         self.t1dir = t1_dir # path to t1 dir (hMRI)
         self.subjects_list = subjects_list
         self.skip_processed = skip_processed
@@ -1875,20 +1875,20 @@ class DwiAnalysisClab():
             print(f'Found {len(self.dwi_preproc_subs)} subjects. Continuing...')
 
         # Check MRTrix3 directory, create if it does not exist
-        if not exists(self.dwi_mrtix_dir):
-            r = input(f'The directory {self.dwi_mrtix_dir} does not exist. Press y key to create it.')
+        if not exists(self.dwi_mrtrix_dir):
+            r = input(f'The directory {self.dwi_mrtrix_dir} does not exist. Press y key to create it.')
             if 'y' in r:
                 try:
-                    makedirs(self.dwi_mrtix_dir)
+                    makedirs(self.dwi_mrtrix_dir)
                 except:
-                    print(f'Could not create {self.dwi_mrtix_dir}. Cannot continue.')
+                    print(f'Could not create {self.dwi_mrtrix_dir}. Cannot continue.')
                     return False
             else:
                 print('Exiting...')
                 return False
         else:
             print('MRTrix3 directory exists. Continuing...')
-            self.dwi_mrtix_subs = [f for f in listdir(self.dwi_mrtix_dir) if f.startswith('sub-')]
+            self.dwi_mrtix_subs = [f for f in listdir(self.dwi_mrtrix_dir) if f.startswith('sub-')]
             if len(self.dwi_mrtix_subs) == 0:
                 print('No subjects found in MRTrix3 directory. Continuing...')
             else:
@@ -1980,12 +1980,12 @@ class DwiAnalysisClab():
         # that's all for now, let's move it back to nas.
 
         if self.move:
-            if exists(join(self.dwi_mrtrix3_dir, sub)):
+            if exists(join(self.dwi_mrtrix_dir, sub)):
                 print(f'{sub} already exists in MRTrix3 dir. Skipping...')
                 # TODO ask if overwrite + send msg to telegram?
             else:
-                sp.run(f'mkdir {join(self.dwi_mrtix_dir, sub)}', shell=True)
-                sp.run(f'cp -r {tdwi} {join(self.dwi_mrtix_dir, sub)}', shell=True)
+                sp.run(f'mkdir {join(self.dwi_mrtrix_dir, sub)}', shell=True)
+                sp.run(f'cp -r {tdwi} {join(self.dwi_mrtrix_dir, sub)}', shell=True)
 
         if self.clear:
             sp.run(f'rm -rf {tdwi}', shell=True)
