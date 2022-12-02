@@ -1834,7 +1834,7 @@ class DwiAnalysisClab():
     """
 
     def __init__(self, dwi_preproc_dir, dwi_mrtrix_dir, t1_dir, subjects_list, skip_processed=True, threads=40,\
-                telegram=True, clear_tmp=True, move_from_tmp=True):
+                telegram=True, tmp_dir = 'tmp', clear_tmp=True, move_from_tmp=True):
 
         self.dwi_preproc_dir = dwi_preproc_dir # path to dwi_preproc_dir, where the preprocessed data lives
         self.dwi_preproc_subs = [] # list of preprocessed subs
@@ -1845,9 +1845,31 @@ class DwiAnalysisClab():
         self.skip_processed = skip_processed
         self.threads = threads
         self.telegram = telegram
+        self.tmp_dir = tmp_dir
         self.clear = clear_tmp
         self.move = move_from_tmp
         self.durations = []
+
+    def tmp(self):
+        """
+        Clean or create tmp dir
+        """
+
+        from os import makedirs, listdir
+        from os.path import exists
+
+        if not exists(self.tmp_dir):
+            print(f'Creating tmp dir {self.tmp_dir}')
+            makedirs(self.tmp_dir)
+        else:
+            if not listdir(self.tmp_dir):
+                rm = input(f'Tmp dir {self.tmp_dir} is not empty, should I remove all data from it (cannot be undone). [y/n]: ')
+                if rm == 'y':
+                    print(f'Removing all data from {self.tmp_dir}')
+                    self.sp.run(f'rm -rf {self.tmp_dir}/*', shell=True)
+                else:
+                    print(f'Will continue with existing data in {self.tmp_dir}')
+
 
     def check_dirs(self):
         """
@@ -1906,9 +1928,8 @@ class DwiAnalysisClab():
         from os import makedirs
         from os.path import exists, join
 
-
-        # TODO - see if there is any differed by adding bvals and bvecs to mif that already packs it, in other words, does the mif pass this data ok
-
+        # TODO - clear tmp at the start y/n
+        
         if not sub.startswith('sub-'):
             sub = 'sub-' + sub
 
