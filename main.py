@@ -2051,7 +2051,7 @@ class DwiAnalysisClab():
         # run dwi2response for Multi-tissue CSD
         # Method citation: Tournier et al. NeuroImage 2007. Robust determination of the fibre orientation distribution in diffusion MRI: Non-negativity constrained super-resolved spherical deconvolution
         # link https://mrtrix.readthedocs.io/en/latest/constrained_spherical_deconvolution/response_function_estimation.html#dhollander
-        sp.run(f'dwi2response dhollander {dwi} {tdwi}/wm.txt {tdwi}/gm.txt {tdwi}/csf.txt -voxels {tdwi}/voxels.mif -mask {tdwi}/mask.mif -nthreads {self.threads}', shell=True)
+        sp.run(f'dwi2response dhollander {dwi} {tdwi}/wm.txt {tdwi}/gm.txt {tdwi}/csf.txt -voxels {tdwi}/voxels.mif -mask {tdwi}/mask.mif -nthreads {self.threads} -quiet', shell=True)
 
         # CSD (constrained spherical deconvolution)
         # Multi-shell multi-tissue constrained spherical deconvolution (MSMT-CSD)
