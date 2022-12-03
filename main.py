@@ -1900,15 +1900,14 @@ class DwiAnalysisClab():
 
             # Check preprocessed data directory and save list of subjects
             if not exists(self.dwi_preproc_dir):
-                print('Preprocessed data directory does not exist. Please check the path.')
+                print(f'Preprocessed data directory {self.dwi_preproc_dir} does not exist. Please check the path.')
                 return False
             else:
-                print('Preprocessed data directory exists. Continuing...')
                 self.dwi_preproc_subs = [f for f in listdir(self.dwi_preproc_dir) if f.startswith('sub-')]
                 if len(self.dwi_preproc_subs) == 0:
                     print('No subjects found in preprocessed data directory. Please check the path.')
                     return False
-                print(f'Found {len(self.dwi_preproc_subs)} subjects. Continuing...')
+                print(f'Found dwi preprocessed data dir with {len(self.dwi_preproc_subs)} subjects. Continuing...')
 
             # Check MRTrix3 directory, create if it does not exist
             if not exists(self.dwi_mrtrix_dir):
@@ -1923,36 +1922,33 @@ class DwiAnalysisClab():
                     print('Exiting...')
                     return False
             else:
-                print('MRTrix3 directory exists. Continuing...')
                 self.dwi_mrtix_subs = [f for f in listdir(self.dwi_mrtrix_dir) if f.startswith('sub-')]
                 if len(self.dwi_mrtix_subs) == 0:
                     print('No subjects found in MRTrix3 directory. Continuing...')
                 else:
-                    print(f'Found {len(self.dwi_mrtix_subs)} subjects. Continuing...')
+                    print(f'Found {len(self.dwi_mrtix_subs)} subjects in MRTrix3 directory. Continuing...')
 
             # Check freesurfer directory
             if not exists(self.freesurfer_dir):
-                print('Freesurfer directory does not exist. Please check the path.')
+                print(f'Freesurfer directory {self.freesurfer_dir} does not exist. Please check the path.')
                 return False
             else:
-                print('Freesurfer directory exists. Continuing...')
                 self.freesurfer_subs = [f for f in listdir(self.freesurfer_dir) if f.startswith('sub-')]
                 if len(self.freesurfer_subs) == 0:
                     print('No subjects found in freesurfer directory. Please check the path.')
                     return False
-                print(f'Found {len(self.freesurfer_subs)} subjects. Continuing...')
+                print(f'Found freesurfer dir with {len(self.freesurfer_subs)} subjects. Continuing...')
 
             # Check t1 directory
             if not exists(self.t1dir):
                 print('T1 directory does not exist. Please check the path.')
                 return False
             else:
-                print('T1 directory exists. Continuing...')
                 self.t1subs = [f for f in listdir(self.t1dir) if f.startswith('sub-')]
                 if len(self.t1subs) == 0:
                     print('No subjects found in t1 directory. Please check the path.')
                     return False
-                print(f'Found {len(self.t1subs)} subjects. Continuing...')
+                print(f'Found T1 directory with {len(self.t1subs)} subjects. Continuing...')
 
             # Check if all subjects are present in all directories
             for sub in self.subjects_list:
@@ -1976,7 +1972,7 @@ class DwiAnalysisClab():
                 print(f'Found {len(self.subjects_list)} subjects in all directories. Continuing...')
             
             cont = input('Press any key to continue or q to quit.')
-            if 'q' in cont:
+            if cont == 'q':
                 return False
             else:
                 # if you got here, all good
