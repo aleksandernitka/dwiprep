@@ -2070,8 +2070,7 @@ class DwiAnalysisClab():
         # f'tensor2metric -mk {tdwi}/{sub}_dk_mk.mif -ak {tdwi}/{sub}_dk_ak.mif -rk {tdwi}/{sub}_dk_rk.mif -mask {tdwi}/mask.mif -dkt {tdwi}/{sub}_dkt.mif'
 
         # Segment tissues, with freesurfer's help
-        # sp.run(f'5ttgen hsvs -hippocampi subfields -thalami nuclei -white_stem -nthreads {self.threads} {fsd} {tdwi}/5tt.mif', shell=True)
-        sp.run(f'5ttgen hsvs -white_stem -nthreads {self.threads} {fsd} {tdwi}/5tt.mif', shell=True)
+        sp.run(f'5ttgen hsvs -hippocampi subfields -thalami nuclei -white_stem -nthreads {self.threads} {fsd} {tdwi}/5tt.mif', shell=True)
 
         # Create mean b0 image
         sp.run(f'dwiextract {dwi} - -bzero | mrmath - mean {tdwi}/mean_b0.mif -axis 3', shell=True)
